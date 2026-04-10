@@ -27,5 +27,5 @@ RUN uv sync --no-dev
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH="/app/src:${PYTHONPATH}"
 
-# Default command (can be overridden in docker-compose for web / worker)
-CMD ["python", "-m", "flask", "run", "--host=0.0.0.0"]
+# Default command for production using Gunicorn WSGI server
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "3", "fdr_etl.web.app:create_app()"]

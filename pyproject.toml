@@ -15,6 +15,7 @@ dependencies = [
     "psycopg-binary",
     "python-dotenv",
     "frictionless[sql]",
+    "gunicorn",
 ]
 
 [project.scripts]
