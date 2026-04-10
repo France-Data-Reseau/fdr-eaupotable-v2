@@ -1,0 +1,51 @@
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-fdr_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  web:
+    build: .
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - FLASK_APP=src.web.app:create_app
+      - FLASK_ENV=production
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://redis:6379/0}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
+    ports:
+      - "5000:5000"
+    depends_on:
+      - db
+      - redis
+    command: ["gunicorn", "--bind", "0.0.0.0:5000", "src.web.app:create_app()"]
+    restart: unless-stopped
+
+  worker:
+    build: .
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://redis:6379/0}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
+    depends_on:
+      - db
+      - redis
+    command: ["celery", "-A", "src.worker.app.celery_app", "worker", "--loglevel=info"]
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

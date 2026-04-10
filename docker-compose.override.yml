@@ -1,0 +1,18 @@
+services:
+  web:
+    environment:
+      - FLASK_APP=src.web.app:create_app
+      - FLASK_ENV=development
+      - FLASK_DEBUG=1
+    volumes:
+      - ./src:/app/src
+    command: ["python", "-m", "flask", "run", "--host=0.0.0.0", "--port=5000", "--debug"]
+
+  worker:
+    volumes:
+      - ./src:/app/src
+    # Pour recharger Celery en dev, on utilise watchmedo ou on laisse tel quel (restart manuel)
+    # L'option simple est de relancer Celery si le worker meurt en dev,
+    # Ici on surcharge juste le volume pour que le code soit interrogeable
+    environment:
+      - FLASK_ENV=development
