@@ -1,12 +1,12 @@
 from celery import Celery
 
-from core.config import Config
+from fdr_etl.core.config import Config
 
 celery_app = Celery(
     "fdr-worker",
     broker=Config.CELERY_BROKER_URL,
     backend=Config.CELERY_RESULT_BACKEND,
-    include=["worker.tasks"]
+    include=["fdr_etl.worker.tasks"],
 )
 
 celery_app.conf.update(

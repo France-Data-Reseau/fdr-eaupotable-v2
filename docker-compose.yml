@@ -31,7 +31,7 @@ services:
     depends_on:
       - db
       - redis
-    command: ["gunicorn", "--bind", "0.0.0.0:5000", "src.web.app:create_app()"]
+    command: [ "gunicorn", "--bind", "0.0.0.0:5000", "src.fdr_etl.web.app:create_app()" ]
     restart: unless-stopped
 
   worker:
@@ -44,7 +44,7 @@ services:
     depends_on:
       - db
       - redis
-    command: ["celery", "-A", "src.worker.app.celery_app", "worker", "--loglevel=info"]
+    command: [ "celery", "-A", "src.fdr_etl.worker.app.celery_app", "worker", "--loglevel=info" ]
     restart: unless-stopped
 
 volumes:

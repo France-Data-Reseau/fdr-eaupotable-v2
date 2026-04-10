@@ -10,12 +10,12 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 # Set working directory
 WORKDIR /app
 
-# Copy pyproject.toml
-COPY pyproject.toml /app/
+# Copy pyproject.toml and README.md (required by hatchling build backend)
+COPY pyproject.toml README.md /app/
 
 # Setup a virtual environment and install dependencies
 # We use uv sync to install the project dependencies
-RUN uv venv && uv sync --no-dev
+RUN uv sync --no-dev
 
 # Copy the rest of the application
 COPY . /app/

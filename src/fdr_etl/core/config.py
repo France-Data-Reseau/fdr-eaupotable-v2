@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 # Charge les variables locales pour le dev si le fichier .env existe
 load_dotenv()
 
+
 class Config:
     DATABASE_URL = os.getenv("DATABASE_URL")
     REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")

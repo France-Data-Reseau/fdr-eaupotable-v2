@@ -1,0 +1,22 @@
+{
+    "name": "eaupotable",
+    "title": "Couche Eau Potable",
+    "description": "Données d'eau potable, ne contenant que 3 colonnes de type entier/numérique.",
+    "fields": [
+        {
+            "name": "A",
+            "type": "number",
+            "description": "Colonne A (nombre)"
+        },
+        {
+            "name": "B",
+            "type": "number",
+            "description": "Colonne B (nombre)"
+        },
+        {
+            "name": "C",
+            "type": "number",
+            "description": "Colonne C (nombre)"
+        }
+    ]
+}
