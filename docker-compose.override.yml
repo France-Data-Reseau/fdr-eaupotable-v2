@@ -1,15 +1,9 @@
 services:
   web:
-    environment:
-      - FLASK_APP=src.fdr_etl.web.app:create_app
-      - FLASK_ENV=development
-      - FLASK_DEBUG=1
     volumes:
       - ./src:/app/src
-    command: [ "python", "-m", "flask", "run", "--host=0.0.0.0", "--port=5000", "--debug" ]
+    command: [ "uvicorn", "src.fdr_etl.web.app:app", "--host", "0.0.0.0", "--port", "5000", "--reload" ]
 
   worker:
     volumes:
       - ./src:/app/src
-    environment:
-      - FLASK_ENV=development

@@ -8,15 +8,17 @@ authors = [
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "flask",
     "celery",
     "redis",
     "psycopg",
     "psycopg-binary",
     "python-dotenv",
     "frictionless[sql]",
-    "gunicorn",
     "pytest",
+    "fastapi",
+    "uvicorn[standard]",
+    "python-multipart",
+    "jinja2",
 ]
 
 [project.scripts]
