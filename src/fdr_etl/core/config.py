@@ -1,4 +1,5 @@
 import os
+
 from dotenv import load_dotenv
 
 # Charge les variables locales pour le dev si le fichier .env existe

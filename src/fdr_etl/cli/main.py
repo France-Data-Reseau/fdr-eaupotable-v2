@@ -1,7 +1,12 @@
 import argparse
+import logging
 import sys
 
+from fdr_etl.core.logging import setup_logging
 from fdr_etl.etl.validate import validate_file
+
+setup_logging()
+logger = logging.getLogger(__name__)
 
 
 def main():
@@ -20,10 +25,10 @@ def main():
     if args.command == "validate":
         is_valid = validate_file(args.filepath)
         if is_valid:
-            print("=> Succès: Le fichier est valide.")
+            logger.info("=> Succès: Le fichier est valide.")
             sys.exit(0)
         else:
-            print("=> Erreur: Le fichier est invalide.")
+            logger.error("=> Erreur: Le fichier est invalide.")
             sys.exit(1)
 
 

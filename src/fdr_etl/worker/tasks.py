@@ -1,8 +1,13 @@
-from .app import celery_app
+import logging
+
 from fdr_etl.core.config import Config
-from fdr_etl.etl.validate import validate_file
 from fdr_etl.etl.load import load_file_to_db
 from fdr_etl.etl.transform import run_transformations
+from fdr_etl.etl.validate import validate_file
+
+from .app import celery_app
+
+logger = logging.getLogger(__name__)
 
 
 @celery_app.task(bind=True)
@@ -14,38 +19,38 @@ def run_etl_pipeline(self, filepath: str):
     3. Transformation (postgis)
     4. Notification
     """
-    print(f"[Worker] Démarrage du pipeline ETL pour: {filepath}")
+    logger.info(f"Démarrage du pipeline ETL pour: {filepath}")
 
     # 1. Validation
     is_valid = validate_file(filepath)
     if not is_valid:
-        print("[Worker] Echec de la validation.")
+        logger.error("Echec de la validation.")
         return {"status": "error", "message": "Validation failed"}
 
     # 2. Load
     db_url = Config.DATABASE_URL
     if not db_url:
-        print("[Worker] DATABASE_URL manquante.")
+        logger.error("DATABASE_URL manquante.")
         return {"status": "error", "message": "Database configuration error"}
 
     try:
         load_file_to_db(filepath, db_url)
-        print("[Worker] Load successful.")
+        logger.info("Load successful.")
     except Exception as e:
-        print(f"[Worker] Echec du load: {e}")
+        logger.exception(f"Echec du load: {e}")
         return {"status": "error", "message": "Load failed"}
-    print("[Worker] Transform mock execution.")
 
     # 3. Transform
+    logger.info("Lancement des transformations.")
     try:
         run_transformations(db_url)
-        print("[Worker] Transform successful.")
+        logger.info("Transform successful.")
     except Exception as e:
-        print(f"[Worker] Echec du transform: {e}")
+        logger.exception(f"Echec du transform: {e}")
         return {"status": "error", "message": "Transform failed"}
 
     # 4. Notify
     # notify_user()
 
-    print("[Worker] Pipeline terminé avec succès.")
+    logger.info("Pipeline terminé avec succès.")
     return {"status": "success", "message": "ETL completed successfully"}

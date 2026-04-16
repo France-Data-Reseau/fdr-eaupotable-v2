@@ -1,8 +1,9 @@
 import os
 import uuid
 
+from flask import Flask, jsonify, render_template, request
 from werkzeug.utils import secure_filename
-from flask import Flask, jsonify, request, render_template
+
 from fdr_etl.core.config import Config
 from fdr_etl.worker.tasks import run_etl_pipeline
 
