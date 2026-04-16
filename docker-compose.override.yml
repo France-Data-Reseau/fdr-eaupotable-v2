@@ -11,8 +11,5 @@ services:
   worker:
     volumes:
       - ./src:/app/src
-    # Pour recharger Celery en dev, on utilise watchmedo ou on laisse tel quel (restart manuel)
-    # L'option simple est de relancer Celery si le worker meurt en dev,
-    # Ici on surcharge juste le volume pour que le code soit interrogeable
     environment:
       - FLASK_ENV=development

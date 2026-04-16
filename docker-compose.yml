@@ -28,6 +28,8 @@ services:
       - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
     ports:
       - "8000:5000"
+    volumes:
+      - uploads_data:/tmp/uploads
     depends_on:
       - db
       - redis
@@ -42,6 +44,8 @@ services:
       - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://redis:6379/0}
       - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
       - C_FORCE_ROOT=true
+    volumes:
+      - uploads_data:/tmp/uploads
     depends_on:
       - db
       - redis
@@ -50,3 +54,4 @@ services:
 
 volumes:
   postgres_data:
+  uploads_data:
