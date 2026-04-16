@@ -4,6 +4,11 @@
     "description": "Données d'eau potable, ne contenant que 3 colonnes de type entier/numérique.",
     "fields": [
         {
+            "name": "fid",
+            "type": "integer",
+            "description": "Identifiant unique"
+        },
+        {
             "name": "A",
             "type": "number",
             "description": "Colonne A (nombre)"

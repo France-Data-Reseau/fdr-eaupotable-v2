@@ -15,12 +15,22 @@ def validate_file(filepath: str) -> bool:
     schema_path = os.path.join(base_dir, "schemas", "eaupotable.json")
 
     try:
+        from frictionless.formats import SqlControl
+        from frictionless import Schema
+        import json
+
+        # Chargement manuel du schéma
+        with open(schema_path, "r", encoding="utf-8") as f:
+            schema_data = json.load(f)
+        
+        # Conversion du dictionnaire en objet Schema (Frictionless v5)
+        schema_obj = Schema.from_descriptor(schema_data)
+
         # Un geopackage est une base de données SQLite.
-        # On cible explicitement la table "eaupotable" via la configuration du resource
         resource = Resource(
             path=f"sqlite:///{filepath}",
-            dialect={"table": "eaupotable"},
-            schema=schema_path,
+            control=SqlControl(table="eaupotable"),
+            schema=schema_obj,
         )
 
         # Lancement de la validation

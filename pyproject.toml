@@ -16,6 +16,7 @@ dependencies = [
     "python-dotenv",
     "frictionless[sql]",
     "gunicorn",
+    "pytest",
 ]
 
 [project.scripts]
