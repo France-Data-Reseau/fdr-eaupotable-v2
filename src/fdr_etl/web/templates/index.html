@@ -3,53 +3,593 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Upload Geopackage - FDR ETL</title>
+    <title>FDR Eau Potable ETL</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f9;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
+        :root {
+            --primary: #2563eb;
+            --bg: #f1f5f9;
+            --card: #ffffff;
+            --text: #1e293b;
+            --border: #e2e8f0;
+            --accent: #f59e0b;
+            --success: #22c55e;
         }
-        .container {
-            background: white;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            line-height: 1.5;
+        }
+
+        .header {
+            max-width: 1200px;
+            margin: 0 auto 30px auto;
             text-align: center;
         }
-        h1 {
-            color: #333;
+
+        .upload-card {
+            background: var(--card);
+            max-width: 500px;
+            margin: 0 auto 40px auto;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            border: 1px solid var(--border);
+        }
+
+        .drop-zone {
+            border: 2px dashed #cbd5e1;
+            border-radius: 8px;
+            padding: 25px;
+            text-align: center;
+            transition: all 0.3s;
+            background: #f8fafc;
+            cursor: pointer;
             margin-bottom: 20px;
         }
-        input[type="file"] {
-            margin-bottom: 20px;
+        .drop-zone:hover {
+            border-color: var(--primary);
+            background: #eff6ff;
         }
+        .drop-zone.drag-over {
+            border-color: var(--primary);
+            background-color: #eff6ff;
+            transform: scale(1.02);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+        }
+
         button {
-            background-color: #007bff;
             color: white;
             border: none;
-            padding: 10px 20px;
-            border-radius: 4px;
+            padding: 14px;
+            border-radius: 8px;
             cursor: pointer;
+            font-weight: 600;
+            width: 100%;
+            transition: all 0.2s;
             font-size: 16px;
+            margin-bottom: 10px;
         }
-        button:hover {
-            background-color: #0056b3;
+
+        #submitBtn { background-color: var(--primary); }
+        #submitBtn:hover { background-color: #1d4ed8; transform: scale(1.01); }
+        
+        #loadDataBtn { 
+            background-color: var(--accent); 
+            display: none;
+        }
+        #loadDataBtn:hover { background-color: #d97706; transform: scale(1.01); }
+
+        button:disabled { background-color: #94a3b8 !important; cursor: not-allowed; transform: none !important; }
+        
+        #exportBtn:hover {
+            background-color: #475569 !important;
+        }
+        .status-success {
+            background-color: #dcfce7 !important;
+            color: #166534 !important;
+            border: 1px solid #bbf7d0;
+        }
+        .status-error {
+            background-color: #fee2e2 !important;
+            color: #991b1b !important;
+            border: 1px solid #fecaca;
+        }
+        #status-container {
+            margin: 15px auto;
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
+            text-align: center;
+            font-size: 14px;
+            max-width: 800px;
+        }
+        .loading { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+        .success { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+
+        .error-list {
+            text-align: left;
+            background: #fff1f2;
+            border: 1px solid #fda4af;
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 15px;
+            max-height: 250px;
+            overflow-y: auto;
+        }
+        .error-item {
+            font-size: 12px;
+            color: #9f1239;
+            padding: 5px 0;
+            border-bottom: 1px solid #fecdd3;
+        }
+        .error-item:last-child { border-bottom: none; }
+        
+        .validation-log {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px auto;
+            max-width: 800px;
+            font-family: monospace;
+            font-size: 13px;
+            display: none;
+        }
+        
+        .log-entry { margin-bottom: 5px; padding-left: 20px; position: relative; }
+        .log-entry.success::before { content: "✅"; position: absolute; left: 0; }
+        .log-entry.error::before { content: "❌"; position: absolute; left: 0; }
+        .log-table-name { font-weight: bold; color: var(--primary); }
+        
+        .spinner {
+            border: 2px solid rgba(0, 0, 0, 0.1);
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border-left-color: var(--primary);
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        #superset-container {
+            display: none;
+            max-width: 1250px;
+            margin: 30px auto;
+            background: var(--card);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            height: 800px;
+            overflow: hidden;
+        }
+        #superset-container iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        /* Conteneur pour centrer le bouton sans qu'il s'étende */
+        .template-download-container {
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: center;
+            width: 100%;
+        }
+
+        #downloadTemplateBtn {
+            display: inline-flex;
+            align-items: center;
+            width: auto;
+            background-color: #f8fafc;
+            color: #475569;
+            border: 1px solid #e2e8f0;
+            padding: 10px 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.95rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        #downloadTemplateBtn:hover {
+            background-color: #f1f5f9;
+            border-color: #cbd5e1;
+        }
+
+        #downloadTemplateBtn svg {
+            margin-right: 10px;
+            flex-shrink: 0;
         }
     </style>
+    <script src="https://unpkg.com/@superset-ui/embedded-sdk"></script>
 </head>
 <body>
-    <div class="container">
-        <h1>Charger un Geopackage</h1>
-        <form action="/upload" method="post" enctype="multipart/form-data">
-            <input type="file" name="file" accept=".gpkg" required>
-            <br>
-            <button type="submit">Envoyer et Traiter</button>
-        </form>
+
+    <div class="header">
+        <h1>FDR Eau Potable ETL</h1>
+        <p style="color: #64748b;">Partager des données relatives aux réseaux de distribution
+             d’eau potable pour caractériser les risques de défaillances, évaluer les besoins en renouvellement
+              des canalisations et orienter les stratégies de gestion patrimoniale</p>
     </div>
+    <div style="margin-bottom: 20px; text-align: center;">
+        <button id="downloadTemplateBtn">
+            Télécharger le modèle GeoPackage (.gpkg)
+        </button>
+        <p style="font-size: 0.85rem; color: #64748b; margin-top: 8px;">
+            Utilisez ce fichier pour garantir la compatibilité avec le système de validation.
+        </p>
+    </div>
+    <div class="upload-card" id="uploadArea">
+        <form id="uploadForm">
+            <div class="drop-zone" onclick="document.getElementById('fileInput').click()">
+                <p id="fileName">Cliquez ou glissez votre fichier .gpkg ici</p>
+                <input type="file" id="fileInput" accept=".gpkg" hidden>
+            </div>
+            <button type="submit" id="submitBtn">Lancer la vérification</button>
+        </form>
+        <button id="loadDataBtn">Charger les données</button>
+    </div>
+
+    <div id="validation-log-container" class="validation-log"></div>
+
+    <div id="status-container" style="max-width: 800px; margin: 15px auto; padding: 25px 15px 15px 15px; border-radius: 8px; display: none; text-align: center; position: relative;">
+        <div id="spinner" class="spinner"></div>
+        <span id="status-text">Attente...</span>
+        <button id="exportBtn" title="Exporter les erreurs en .txt" 
+                style="display:none; position: absolute; top: 10px; right: 10px; width: auto !important; min-width: 80px; background-color: #64748b; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; line-height: 1.2; z-index: 10;">
+            📄 Exporter .txt
+        </button>
+    </div>    
+
+    <div id="superset-container"></div>
+
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const fileNameDisplay = document.getElementById('fileName');
+        const uploadForm = document.getElementById('uploadForm');
+        const loadDataBtn = document.getElementById('loadDataBtn');
+        const statusContainer = document.getElementById('status-container');
+        const statusText = document.getElementById('status-text');
+        const submitBtn = document.getElementById('submitBtn');
+        const dropZone = document.querySelector('.drop-zone');
+        const exportBtn = document.getElementById('exportBtn');
+        const logContainer = document.getElementById('validation-log-container');
+        const supersetDiv = document.getElementById('superset-container');
+
+        let selectedFile = null;
+        let lastValidationErrors = [];
+        let validatedFilepath = null; // Stocke le chemin renvoyé par le backend après validation
+        let validatedImportId = null; // Stocke l'UUID généré à l'upload
+
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length > 0) {
+                selectedFile = fileInput.files[0];
+                fileNameDisplay.innerText = "Fichier : " + selectedFile.name;
+                fileNameDisplay.style.color = "var(--primary)";
+                submitBtn.disabled = false;
+                // Si on change de fichier, on reset le bouton 2
+                loadDataBtn.style.display = 'none';
+            }
+        });
+
+        // Drag & Drop
+        ['dragover', 'drop'].forEach(name => {
+            dropZone.addEventListener(name, (e) => { e.preventDefault(); e.stopPropagation(); });
+        });
+        ['dragenter', 'dragover'].forEach(name => {
+            dropZone.addEventListener(name, () => dropZone.classList.add('drag-over'));
+        });
+        ['dragleave', 'drop'].forEach(name => {
+            dropZone.addEventListener(name, () => dropZone.classList.remove('drag-over'));
+        });
+        dropZone.addEventListener('drop', (e) => {
+            const files = e.dataTransfer.files;
+            if (files.length > 0) { fileInput.files = files; fileInput.dispatchEvent(new Event('change')); }
+        });
+
+        // --- ACTION 1 : VALIDATION ---
+        uploadForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            // RÉINITIALISATION COMPLÈTE DE L'INTERFACE
+            logContainer.style.display = 'none';
+            logContainer.innerHTML = '';
+            exportBtn.style.display = 'none';
+            supersetDiv.style.display = 'none';
+            loadDataBtn.style.display = 'none';
+            statusContainer.classList.remove('status-success', 'status-error');
+            statusContainer.style.display = 'block';
+            statusContainer.style.border = 'none';
+            statusContainer.style.display = 'none';
+            
+            const oldErrorList = statusContainer.querySelector('.error-list');
+            if (oldErrorList) oldErrorList.remove();
+
+            // VÉRIFICATION DU FICHIER
+            if (!selectedFile) {
+                statusContainer.style.display = 'block';
+                statusContainer.style.border = '1px solid #f59e0b';
+                statusText.innerText = "⚠️ Veuillez sélectionner un fichier .gpkg.";
+                statusText.style.color = "#b45309";
+                document.getElementById('spinner').style.display = 'none';
+                return;
+            }
+
+            // ÉTAT DE CHARGEMENT
+            document.getElementById('spinner').style.display = 'inline-block';
+            submitBtn.disabled = true;
+            statusContainer.style.display = 'block';
+            statusContainer.className = 'loading';
+            statusText.innerText = "Analyse de la structure du fichier...";
+
+            const formData = new FormData();
+            formData.append("file", selectedFile);
+
+            try {
+                // Appel vers l'endpoint de validation (ex: /upload qui lance run_validation_task)
+                const response = await fetch("/upload", { method: "POST", body: formData });
+                const data = await response.json();
+                if (response.status === 202) {
+                    // MODIFICATION : On mémorise l'import_id renvoyé immédiatement par /upload
+                    validatedImportId = data.import_id; 
+                    pollValidation(data.task_id);
+                }
+                else showError("Erreur : " + data.error);
+            } catch (err) { showError("Erreur serveur lors de la validation."); }
+        });
+
+        async function pollValidation(taskId) {
+            const interval = setInterval(async () => {
+                const res = await fetch(`/status/${taskId}`);
+                const data = await res.json();
+                
+                if (data.status === "SUCCESS") {
+                    clearInterval(interval);
+                    const result = data.result;
+                    
+                    if (result.status === "error") {
+                        showValidationLogs(result.errors || []);
+                        showError(result.message, result.errors);
+                    } else {
+                        // VALIDATION RÉUSSIE
+                        validatedFilepath = result.filepath; // On stocke le chemin pour l'étape 2
+                        showValidationLogs(result.validation_report || []);
+                        
+                        statusContainer.className = 'success';
+                        statusContainer.classList.add('status-success');
+                        statusContainer.style.border = '2px solid #22c55e';
+                        statusContainer.classList.remove('status-error');
+                        statusText.innerText = "Schéma validé ! Le fichier est prêt pour l'intégration.";
+                        statusText.style.color = "#15803d";
+                        document.getElementById('spinner').style.display = 'none';
+                        
+                        // DÉBLOCAGE DU BOUTON 2
+                        loadDataBtn.style.display = 'block';
+                        submitBtn.disabled = false;
+                    }
+                } else if (data.status === "FAILURE") {
+                    clearInterval(interval);
+                    showError("Erreur système lors de la validation.");
+                }
+            }, 50);
+        }
+
+        // --- ACTION 2 : CHARGEMENT ET TRANSFORMATIONS ---
+        loadDataBtn.addEventListener('click', async () => {
+            loadDataBtn.disabled = true;
+            submitBtn.disabled = true;
+            document.getElementById('spinner').style.display = 'inline-block';
+            statusContainer.className = 'loading';
+            statusText.innerText = "Chargement et intégration de la base de données";
+
+            try {
+                // Appel vers l'endpoint d'intégration (ex: /integrate qui lance run_integration_task)
+                const response = await fetch("/integrate", { 
+                    method: "POST", 
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ 
+                        filepath: validatedFilepath,
+                        import_id: validatedImportId
+                    }) 
+                });
+                const data = await response.json();
+                if (response.status === 202) pollIntegration(data.task_id);
+                else showError("Erreur : " + data.error);
+            } catch (err) { showError("Erreur serveur lors de l'intégration."); }
+        });
+
+        async function pollIntegration(taskId) {
+            const interval = setInterval(async () => {
+                const res = await fetch(`/status/${taskId}`);
+                const data = await res.json();
+                
+                if (data.status === "SUCCESS") {
+                    clearInterval(interval);
+                    statusContainer.className = 'success';
+                    statusText.innerText = "Intégration terminée ! Chargement du tableau de bord...";
+                    document.getElementById('spinner').style.display = 'none';
+                    loadDataBtn.style.display = 'none';
+                    
+                    // AFFICHAGE DU DASHBOARD
+                    setTimeout(() => {
+                        loadSupersetDashboard();
+                    }, 500);
+                } else if (data.status === "FAILURE") {
+                    clearInterval(interval);
+                    showError("Échec de l'intégration des données.");
+                }
+            }, 50);
+        }
+
+        // FONCTIONS UTILITAIRES (Inchangées)
+        function showValidationLogs(errors) {
+            logContainer.style.display = 'block';
+            logContainer.innerHTML = '<h4>Rapport de conformité :</h4>';
+            const tables = ["eau_potable — aep_canalisation", "aep_perimetre", "eau_potable — aep_reparation"];
+            tables.forEach(tableName => {
+                const tableErrors = errors.filter(e => e.table === tableName);
+                const entry = document.createElement('div');
+                if (tableErrors.length === 0) {
+                    entry.className = 'log-entry success';
+                    entry.innerHTML = `Table <span class="log-table-name">${tableName}</span> : Structure conforme.`;
+                } else {
+                    entry.className = 'log-entry error';
+                    entry.innerHTML = `Table <span class="log-table-name">${tableName}</span> : ${tableErrors.length} anomalie(s).`;
+                }
+                logContainer.appendChild(entry);
+            });
+        }
+
+        function showError(msg, details = []) {
+            lastValidationErrors = details; 
+            statusContainer.style.display = 'block';
+            statusContainer.style.background = "#fff1f2"; 
+            statusContainer.style.border = '2px solid #ef4444';
+            statusText.innerHTML = `<strong>❌ ${msg}</strong>`;
+            statusText.style.color = "#b91c1c";
+            document.getElementById('spinner').style.display = 'none';
+            exportBtn.style.display = (details && details.length > 0) ? 'inline-block' : 'none';
+            const oldList = statusContainer.querySelector('.error-list');
+            if (oldList) oldList.remove();
+            if (details && details.length > 0) {
+                let listHtml = '<div class="error-list">';
+                details.forEach(err => {
+                    const cleanMsg = err.message.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                    listHtml += `<div class="error-item"><span class="log-table-name">${err.table}</span> : ${cleanMsg}</div>`;
+                });
+                listHtml += '</div>';
+                statusContainer.insertAdjacentHTML('beforeend', listHtml);
+            }
+            submitBtn.disabled = false;
+            loadDataBtn.disabled = false;
+        }
+
+        // Gestionnaire pour le bouton d'exportation
+        exportBtn.addEventListener('click', async () => {
+            if (lastValidationErrors.length === 0) return;
+
+            // Préparation du contenu du fichier
+            let content = "RAPPORT D'ERREURS - FDR EAU POTABLE ETL\n";
+            content += "Généré le : " + new Date().toLocaleString() + "\n";
+            content += "------------------------------------------\n\n";
+
+            lastValidationErrors.forEach(err => {
+                const textMsg = err.message.replace(/\*\*/g, '');
+                content += `[${err.table}]\n${textMsg}\n\n`;
+            });
+
+            // Tentative d'utilisation de l'API moderne "Enregistrer sous"
+            if ('showSaveFilePicker' in window) {
+                try {
+                    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 10);
+                    const handle = await window.showSaveFilePicker({
+                        suggestedName: `erreurs_validation_${timestamp}.txt`,
+                        types: [{
+                            description: 'Fichier texte',
+                            accept: {'text/plain': ['.txt']},
+                        }],
+                    });
+                    const writable = await handle.createWritable();
+                    await writable.write(content);
+                    await writable.close();
+                    return; // Succès, on s'arrête ici
+                } catch (err) {
+                    if (err.name === 'AbortError') return; // L'utilisateur a annulé
+                    console.error("Erreur SavePicker:", err);
+                    // En cas d'erreur, on bascule sur la méthode classique
+                }
+            }
+
+            // --- MÉTHODE CLASSIQUE (Fallback) ---
+            // Utilisée si le navigateur est ancien ou si l'API échoue
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `erreurs_validation_export.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        });
+
+        // Téléchargement du template gpkg
+        const downloadTemplateBtn = document.getElementById('downloadTemplateBtn');
+
+        downloadTemplateBtn.addEventListener('click', async (e) => {
+            e.preventDefault(); // Empêche le comportement par défaut du lien
+            
+            const fileUrl = "/schemas/FDR_eau_potable_V6.gpkg";
+            const fileName = "FDR_eau_potable_V6.gpkg";
+
+            try {
+                // Récupération du fichier depuis le serveur
+                const response = await fetch(fileUrl);
+                if (!response.ok) throw new Error("Impossible de récupérer le modèle sur le serveur.");
+                const blob = await response.blob();
+
+                // Tentative avec l'API moderne "Enregistrer sous"
+                if ('showSaveFilePicker' in window) {
+                    try {
+                        const handle = await window.showSaveFilePicker({
+                            suggestedName: fileName,
+                            types: [{
+                                description: 'Fichier GeoPackage',
+                                accept: {'application/geopackage+sqlite3': ['.gpkg']},
+                            }],
+                        });
+                        const writable = await handle.createWritable();
+                        await writable.write(blob);
+                        await writable.close();
+                        return; // Succès
+                    } catch (err) {
+                        if (err.name === 'AbortError') return;
+                        console.error("Erreur SavePicker:", err);
+                        // Si échec ou refus, on continue vers le fallback
+                    }
+                }
+
+                // MÉTHODE CLASSIQUE (Fallback)
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+
+            } catch (error) {
+                console.error("Erreur de téléchargement:", error);
+                alert("Erreur lors du téléchargement du gabarit.");
+            }
+        });
+        async function loadSupersetDashboard() {
+            supersetDiv.style.display = 'block';
+            try {
+                const response = await fetch("/api/superset-guest-token");
+                const data = await response.json();
+                supersetEmbeddedSdk.embedDashboard({
+                    id: data.dashboard_id,
+                    supersetDomain: "http://localhost:8088",
+                    mountPoint: supersetDiv,
+                    fetchGuestToken: () => data.token,
+                    dashboardUiConfig: { hideTitle: true, hideChartControls: false, filters: { visible: true, expanded: false } },
+                });
+            } catch (err) { console.error("Erreur Superset:", err); }
+            // MASQUER LE MESSAGE APRÈS 2 SECONDES
+                setTimeout(() => {
+                    statusContainer.style.display = 'none'; 
+                }, 2000);
+        }
+    </script>
 </body>
 </html>

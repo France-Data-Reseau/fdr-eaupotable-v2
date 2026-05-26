@@ -1,0 +1,65 @@
+{
+    "fields": [
+        {
+            "name": "fid",
+            "type": "integer"
+        },
+        {
+            "name": "Id_perimetre",
+            "type": "string"
+        },
+        {
+            "name": "N° SIREN",
+            "type": "integer"
+        },
+        {
+            "name": "Nom de la collectivité de l'entité de gestion à laquelle la commune adhère",
+            "type": "string"
+        },
+        {
+            "name": "Identifiant SISPEA de la collectivité de l'entité de gestion à laquelle la commune adhère",
+            "type": "integer"
+        },
+        {
+            "name": "etat_service",
+            "type": "string",
+            "title": "état de service",
+            "constraints": {
+                "enum": [
+                    "en_service",
+                    "en_arret",
+                    "abandon",
+                    "en_projet",
+                    "en_construction",
+                    "comble",
+                    "depose",
+                    "non_renseigne",
+                    "non_concerne",
+                    "non_valide",
+                    "non_determine",
+                    "autre"
+                ]
+            }
+        },
+        {
+            "name": "type_perimetre_gestion",
+            "type": "string",
+            "title": "type de périmètre",
+            "constraints": {
+                "enum": [
+                    "cloture",
+                    "enceinte",
+                    "administrative",
+                    "non_renseigne",
+                    "non_concerne",
+                    "non_valide",
+                    "non_determine",
+                    "autre"
+                ]
+            }
+        }
+    ],
+    "primaryKey": [
+        "fid"
+    ]
+}

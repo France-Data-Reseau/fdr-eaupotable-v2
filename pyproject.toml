@@ -10,6 +10,7 @@ requires-python = ">=3.12"
 dependencies = [
     "celery",
     "redis",
+    "sqlalchemy",
     "psycopg",
     "psycopg-binary",
     "python-dotenv",
@@ -19,6 +20,8 @@ dependencies = [
     "uvicorn[standard]",
     "python-multipart",
     "jinja2",
+    "pandas",
+    "numpy"
 ]
 
 [project.scripts]
