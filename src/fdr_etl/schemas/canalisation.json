@@ -1,0 +1,564 @@
+{
+    "fields": [
+        {
+            "name": "fid",
+            "type": "integer",
+            "constraints": {
+            "required": true
+             }
+        },
+        {
+            "name": "type_reseau",
+            "type": "string",
+            "title": "type de réseau",
+            "constraints": {
+                "enum": [
+                    "aep",
+                    "assaep",
+                    "ince",
+                    "assaeu",
+                    "assaru",
+                    "non_renseigne",
+                    "non_concerne",
+                    "non_valide",
+                    "non_determine",
+                    "autre"
+                ]
+            }
+        },
+        {
+            "name": "fictif",
+            "type": "boolean",
+            "title": "fictif ?",
+            "trueValues": [ "true", "True", "TRUE", "1" ,"vrai", "Vrai","VRAI"],
+            "falseValues": [ "false", "False", "FALSE", "0", "faux", "Faux", "FAUX"]
+        },
+        {
+            "name": "etat_service",
+            "type": "string",
+            "title": "état de service",
+            "constraints": {
+                "enum": [
+                    "en_service",
+                    "en_arret",
+                    "abandon",
+                    "en_projet",
+                    "en_construction",
+                    "comble",
+                    "depose",
+                    "non_renseigne",
+                    "non_concerne",
+                    "non_valide",
+                    "non_determine",
+                    "autre"
+                ]
+            }
+        },
+        {
+            "name": "insee_commune",
+            "type": "string",
+            "title": "insee de la commune"
+        },
+        {
+            "name": "localisation",
+            "type": "string",
+            "title": "adresse, nom de la rue principale, ou localisation relative du patrimoine"
+        },
+        {
+            "name": "maitre_ouvrage",
+            "type": "string",
+            "title": "maitre d'ouvrage"
+        },
+        {
+            "name": "exploitant",
+            "type": "string",
+            "title": "exploitant actuel"
+        },
+        {
+            "name": "entreprise_pose",
+            "type": "string",
+            "title": "entreprise de pose"
+        },
+        {
+            "name": "precision_xy",
+            "type": "string",
+            "title": "classe de précision XY",
+            "constraints": {
+                "enum": [
+                    "A",
+                    "B",
+                    "C"
+                ]
+            }
+        },
+        {
+            "name": "precision_z",
+            "type": "string",
+            "title": "classe de précision Z",
+            "constraints": {
+                "enum": [
+                    "A",
+                    "B",
+                    "C"
+                ]
+            }
+        },
+        {
+            "name": "an_pose_sup",
+            "type": "integer",
+            "title": "Année marquant la fin de la période de pose"
+        },
+        {
+            "name": "an_pose_inf",
+            "type": "integer",
+            "title": "Année marquant la début de la période de pose"
+        },
+        {
+            "name": "an_service_sup",
+            "type": "integer",
+            "title": "Année marquant la fin de la période de mise en service"
+        },
+        {
+            "name": "an_service_inf",
+            "type": "integer",
+            "title": "Année marquant le début de la période de mise en service"
+        },
+        {
+            "name": "an_abandon_sup",
+            "type": "integer",
+            "title": "Année marquant la fin de la période d'arrêt définitif"
+        },
+        {
+            "name": "an_abandon_inf",
+            "type": "integer",
+            "title": "Année marquant le début de la période d'arrêt définitif"
+        },
+        {
+            "name": "an_rehab_sup",
+            "type": "integer",
+            "title": "Année marquant la fin de la période de réhabilitation"
+        },
+        {
+            "name": "an_rehab_inf",
+            "type": "integer",
+            "title": "Année marquant le début de la période de mise en service"
+        },
+        {
+            "name": "date_creation",
+            "type": "datetime",
+            "title": "date de la création de l'objet sig"
+        },
+        {
+            "name": "origine_creation",
+            "type": "string",
+            "title": "document source de la création",
+            "constraints": {
+                "enum": [
+                    "recolement_certifie",
+                    "recolement_ancien",
+                    "projet_certifie",
+                    "plan_realisation",
+                    "croquis_certifie",
+                    "plan_non_verifie",
+                    "croquis",
+                    "non_fiable",
+                    "non_renseigne",
+                    "non_concerne",
+                    "non_valide",
+                    "non_determine",
+                    "autre"
+                ]
+            }
+        },
+        {
+            "name": "date_maj",
+            "type": "datetime",
+            "title": "date de mise à jour de l'objet sig"
+        },
+        {
+            "name": "origine_maj",
+            "type": "string",
+            "title": "document source de la mise à jour",
+            "constraints": {
+                "enum": [
+                    "recolement_certifie",
+                    "recolement_ancien",
+                    "projet_certifie",
+                    "plan_realisation",
+                    "croquis_certifie",
+                    "plan_non_verifie",
+                    "croquis",
+                    "non_fiable",
+                    "non_renseigne",
+                    "non_concerne",
+                    "non_valide",
+                    "non_determine",
+                    "autre"
+                ]
+            }
+        },
+        {
+            "name": "lien_doc1",
+            "type": "string",
+            "title": "lien vers document"
+        },
+        {
+            "name": "lien_doc2",
+            "type": "string",
+            "title": "lien 2 vers document"
+        },
+        {
+            "name": "commentaire",
+            "type": "string"
+        },
+        {
+            "name": "id_canalisation",
+            "type": "integer"
+        },
+        {
+            "name": "mode_circulation",
+            "type": "string",
+            "title": "mode de circulation",
+            "constraints": {
+                "enum": [
+                    "gravitaire",
+                    "refoulement",
+                    "sous_vide",
+                    "forcee",
+                    "non_renseigne",
+                    "non_concerne",
+                    "non_valide",
+                    "non_determine",
+                    "autre"
+                ]
+            }
+        },
+        {
+            "name": "type_pose",
+            "type": "string",
+            "title": "type de pose",
+            "constraints": {
+                "enum": [
+                    "tranchee_ouverte",
+                    "fusee",
+                    "tunnelier",
+                    "forage_dirige",
+                    "pousse_tube",
+                    "eclatement",
+                    "extraction",
+                    "decoupe",
+                    "tubage_continu",
+                    "tubage_court",
+                    "enroulement_helicoidal",
+                    "chemisage_continu",
+                    "chemisage_partiel",
+                    "injection_resine",
+                    "injection_coulis",
+                    "reparation_directe",
+                    "reparation_robot",
+                    "revetement_projete",
+                    "non_renseigne",
+                    "non_concerne",
+                    "non_valide",
+                    "non_determine",
+                    "autre"
+                ]
+            }
+        },
+        {
+            "name": "raison_pose",
+            "type": "string",
+            "title": "Raison de pose",
+            "constraints": {
+                "enum": [
+                    "creation",
+                    "renouvellement",
+                    "rehab_structurante",
+                    "rehab_ponctuelle",
+                    "non_renseigne",
+                    "non_concerne",
+                    "non_valide",
+                    "non_determine",
+                    "autre"
+                ]
+            }
+        },
+        {
+            "name": "materiau",
+            "type": "string",
+            "title": "matériau constitutif",
+            "constraints": {
+                "enum": [
+                    "acier",
+                    "amci",
+                    "autre",
+                    "ba",
+                    "beton",
+                    "bitum",
+                    "bois",
+                    "briq",
+                    "btat",
+                    "btcp",
+                    "btfb",
+                    "btna",
+                    "btpc",
+                    "btpj",
+                    "cu",
+                    "epx",
+                    "fbpj",
+                    "fbro",
+                    "fbvr",
+                    "fd",
+                    "fg",
+                    "fonte",
+                    "gres",
+                    "inc",
+                    "mac",
+                    "maca",
+                    "macna",
+                    "metal",
+                    "meul",
+                    "mrtc",
+                    "pb",
+                    "pbu",
+                    "pe",
+                    "pebd",
+                    "pehd",
+                    "pehda",
+                    "pex",
+                    "plast",
+                    "pp",
+                    "ppa",
+                    "prv",
+                    "pu",
+                    "pvc",
+                    "pvca",
+                    "pvcbo",
+                    "pvcc",
+                    "rpmp",
+                    "sgbt",
+                    "tole",
+                    "trct",
+                    "nr"
+                ]
+            }
+        },
+        {
+            "name": "revetement_interieur",
+            "type": "string",
+            "title": "revêtement intérieure",
+            "constraints": {
+                "enum": [
+                    "gaine_pet",
+                    "feutre_epoxy",
+                    "feutre_polyester",
+                    "feutre_pur",
+                    "feutre_vinylester",
+                    "fibre_epoxy",
+                    "fibre_polyester",
+                    "fibre_pur",
+                    "fibre_vinylester",
+                    "mortier_ciment",
+                    "peinture_bitumineuse",
+                    "peinture_epoxy",
+                    "peinture_pu",
+                    "projection_beton",
+                    "projection_epoxy",
+                    "non_renseigne",
+                    "non_concerne",
+                    "non_valide",
+                    "non_determine",
+                    "autre"
+                ]
+            }
+        },
+        {
+            "name": "diametre_equivalent",
+            "type": "integer",
+            "title": "diametre nominale ou equivalent (en  mm)",
+            "constraints": {
+                "minimum": 1,
+                "maximum": 10000
+            }
+        },
+        {
+            "name": "longueur_terrain",
+            "type": "number",
+            "title": "longueur réelle sur terrain (en m)"
+        },
+        {
+            "name": "sensible",
+            "type": "integer"
+        },
+        {
+            "name": "noeudterminal",
+            "type": "integer",
+            "title": "identifiant noeud terminal"
+        },
+        {
+            "name": "noeudinitial",
+            "type": "integer",
+            "title": "identifiant noeud initial"
+        },
+        {
+            "name": "forme",
+            "type": "string",
+            "title": "forme générale de l'objet",
+            "constraints": {
+                "enum": [
+                    "circulaire",
+                    "rectangulaire",
+                    "ovoide",
+                    "en_u",
+                    "en_arc",
+                    "ovale",
+                    "complexe",
+                    "non_renseigne",
+                    "non_concerne",
+                    "non_valide",
+                    "non_determine",
+                    "autre"
+                ]
+            }
+        },
+        {
+            "name": "lien_detail",
+            "type": "string"
+        },
+        {
+            "name": "hauteur_interieure",
+            "type": "number",
+            "title": "hauteur max interieure"
+        },
+        {
+            "name": "hauteur_exterieure",
+            "type": "number",
+            "title": "hauteur max exterieure"
+        },
+        {
+            "name": "largeur_interieure",
+            "type": "number",
+            "title": "largeur max interieure"
+        },
+        {
+            "name": "largeur_exterieure",
+            "type": "number",
+            "title": "largeur max exterieure"
+        },
+        {
+            "name": "longueur_interieure",
+            "type": "number",
+            "title": "longueur max interieure"
+        },
+        {
+            "name": "longueur_exterieure",
+            "type": "number",
+            "title": "longueur max exterieure"
+        },
+        {
+            "name": "id_aep_canalisation",
+            "type": "string"
+        },
+        {
+            "name": "fonction_canalisation",
+            "type": "string",
+            "title": "fonction de la canalisation",
+            "constraints": {
+                "enum": [
+                    "adduction",
+                    "transport",
+                    "transport_distri",
+                    "distribution",
+                    "non_renseigne",
+                    "non_concerne",
+                    "non_valide",
+                    "non_determine",
+                    "autre"
+                ]
+            }
+        },
+        {
+            "name": "contenu_canalisation",
+            "type": "string",
+            "title": "type d'eau transportée",
+            "constraints": {
+                "enum": [
+                    "eau_brute",
+                    "eau_potable",
+                    "eau_impropre",
+                    "non_renseigne",
+                    "non_concerne",
+                    "non_valide",
+                    "non_determine",
+                    "autre"
+                ]
+            }
+        },
+        {
+            "name": "protection_cathodique",
+            "type": "string",
+            "title": "protection cathodique",
+            "constraints": {
+                "enum": [
+                    "oui",
+                    "non",
+                    "non_renseigne",
+                    "non_concerne",
+                    "non_valide",
+                    "non_determine",
+                    "autre"
+                ]
+            }
+        },
+        {
+            "name": "etage_pression",
+            "type": "string",
+            "title": "référence étage de pression"
+        },
+        {
+            "name": "type_pression",
+            "type": "string",
+            "title": "type de pression",
+            "constraints": {
+                "enum": [
+                    "gravitaire",
+                    "surpresse",
+                    "reduit",
+                    "surpresse_reduit",
+                    "non_renseigne",
+                    "non_concerne",
+                    "non_valide",
+                    "non_determine",
+                    "autre"
+                ]
+            }
+        },
+        {
+            "name": "secteur_hydraulique",
+            "type": "string",
+            "title": "secteur ou ilot de distribution"
+        },
+        {
+            "name": "ref_udi",
+            "type": "string",
+            "title": "référence unité de distribution ARS"
+        },
+        {
+            "name": "cote_debut",
+            "type": "number",
+            "title": "cote début (génératrice supérieure)"
+        },
+        {
+            "name": "cote_fin",
+            "type": "number",
+            "title": "cote de fin (génératrice supérieure)"
+        },
+        {
+            "name": "ref_reservoir",
+            "type": "integer"
+        }
+    ],
+    "primaryKey": [
+        "fid"
+    ]
+}

@@ -2,7 +2,7 @@ services:
   web:
     volumes:
       - ./src:/app/src
-    command: [ "uvicorn", "src.fdr_etl.web.app:app", "--host", "0.0.0.0", "--port", "5000", "--reload" ]
+    command: [ "uvicorn", "src.fdr_etl.web.app:app", "--host", "0.0.0.0", "--port", "5000", "--reload", --no-access-log]
 
   worker:
     volumes:

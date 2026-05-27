@@ -1,6 +1,9 @@
 services:
   db:
     image: postgis/postgis:16-3.4
+    container_name: db
+    hostname: db
+    command: ["postgres", "-c", "log_min_messages=error"]
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
@@ -10,12 +13,16 @@ services:
     ports:
       - "5432:5432"
     restart: unless-stopped
+    networks:
+          - fdr_network
 
   redis:
     image: redis:alpine
     ports:
       - "6379:6379"
     restart: unless-stopped
+    networks:
+      - fdr_network
 
   web:
     build: .
@@ -31,8 +38,10 @@ services:
     depends_on:
       - db
       - redis
-    command: [ "uvicorn", "src.fdr_etl.web.app:app", "--host", "0.0.0.0", "--port", "5000" ]
+    command: [ "uvicorn", "fdr_etl.web.app:app", "--host", "0.0.0.0", "--port", "5000" ]
     restart: unless-stopped
+    networks:
+      - fdr_network
 
   worker:
     build: .
@@ -42,14 +51,40 @@ services:
       - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://redis:6379/0}
       - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
       - C_FORCE_ROOT=true
+    networks:
+      - fdr_network
     volumes:
       - uploads_data:/tmp/uploads
     depends_on:
       - db
       - redis
-    command: [ "celery", "-A", "src.fdr_etl.worker.app.celery_app", "worker", "--loglevel=info" ]
+    command: [ "celery", "-A", "fdr_etl.worker.app.celery_app", "worker", "--loglevel=info" ]
     restart: unless-stopped
-
+  superset:
+    build:
+      context: .
+      dockerfile: Dockerfile.superset
+    container_name: superset
+    user: root
+    ports:
+      - "8088:8088"
+    environment:
+      - SUPERSET_CONFIG_PATH=/app/pythonpath/superset_config.py
+      - SUPERSET_FEATURE_EMBEDDED_DASHBOARD=true
+      - SUPERSET_SECRET_KEY=une_cle_tres_secrete_123
+      - SQLALCHEMY_DATABASE_URI=postgresql://postgres:postgres@db:5432/fdr_db
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/fdr_db
+    depends_on:
+      - db
+    networks:
+      - fdr_network
+    volumes:
+      - superset_home:/app/superset_home
+      - ./superset_config.py:/app/pythonpath/superset_config.py
+networks:
+  fdr_network:
+    driver: bridge
 volumes:
   postgres_data:
   uploads_data:
+  superset_home:

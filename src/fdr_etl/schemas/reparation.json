@@ -1,0 +1,167 @@
+{
+    "fields": [
+        {
+            "name": "fid",
+            "type": "integer"
+        },
+        {
+            "name": "idReparation",
+            "type": "string",
+            "title": "ID Réparation"
+        },
+        {
+            "name": "supportIncident",
+            "type": "string",
+            "title": "Support Incident"
+        },
+        {
+            "name": "dateIntervention",
+            "type": "datetime",
+            "title": "Date Intervention"
+        },
+        {
+            "name": "qualiteGeolocalisation",
+            "type": "string",
+            "title": "Qualité Géolocalisation",
+            "constraints": {
+                "enum": [
+                    "A",
+                    "B",
+                    "C"
+                ]
+            }
+        },
+        {
+            "name": "materiau",
+            "type": "string",
+            "title": "Matériau",
+            "constraints": {
+                "enum": [
+                    "acier",
+                    "amci",
+                    "autre",
+                    "ba",
+                    "beton",
+                    "bitum",
+                    "bois",
+                    "briq",
+                    "btat",
+                    "btcp",
+                    "btfb",
+                    "btna",
+                    "btpc",
+                    "btpj",
+                    "cu",
+                    "epx",
+                    "fbpj",
+                    "fbro",
+                    "fbvr",
+                    "fd",
+                    "fg",
+                    "fonte",
+                    "gres",
+                    "inc",
+                    "mac",
+                    "maca",
+                    "macna",
+                    "metal",
+                    "meul",
+                    "mrtc",
+                    "pb",
+                    "pbu",
+                    "pe",
+                    "pebd",
+                    "pehd",
+                    "pehda",
+                    "pex",
+                    "plast",
+                    "pp",
+                    "ppa",
+                    "prv",
+                    "pu",
+                    "pvc",
+                    "pvca",
+                    "pvcbo",
+                    "pvcc",
+                    "rpmp",
+                    "sgbt",
+                    "tole",
+                    "trct",
+                    "nr"
+                ]
+            }
+        },
+        {
+            "name": "diametreNominal",
+            "type": "integer",
+            "title": "Diamètre Nominal",
+            "constraints": {
+                "minimum": 1.0,
+                "maximum": 10000.0
+            }
+        },
+        {
+            "name": "datePose",
+            "type": "datetime",
+            "title": "Date Pose"
+        },
+        {
+            "name": "emplacement",
+            "type": "string",
+            "title": "Emplacement",
+            "constraints": {
+                "enum": [
+                    "Indéterminé",
+                    "Branchement",
+                    "Canalisation",
+                    "Fontainerie",
+                    "Robinetterie",
+                    "Autre"
+                ]
+            }
+        },
+        {
+            "name": "type",
+            "type": "string",
+            "title": "Type",
+            "constraints": {
+                "enum": [
+                    "Indéterminé",
+                    "Casse longitudinale",
+                    "Casse nette",
+                    "Déboitement",
+                    "Fissure",
+                    "Joint",
+                    "Percement",
+                    "Casse circonférentielle",
+                    "Fissure longitudinale",
+                    "Fissure circonférentielle",
+                    "Autre"
+                ]
+            }
+        },
+        {
+            "name": "causeProbable",
+            "type": "string",
+            "title": "Cause Probable",
+            "constraints": {
+                "enum": [
+                    "Indéterminé",
+                    "Corrosion interne",
+                    "Corrosion externe",
+                    "Mouvement de terrain",
+                    "Condition de pose",
+                    "Racine",
+                    "Surpression",
+                    "Coup de bélier",
+                    "Tiers",
+                    "Gel",
+                    "Autre"
+                ]
+            }
+        }
+    ],
+    "primaryKey": [
+        "fid"
+    ]
+}
