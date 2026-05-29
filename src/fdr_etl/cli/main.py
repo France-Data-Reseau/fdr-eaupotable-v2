@@ -23,12 +23,17 @@ def main():
     args = parser.parse_args()
 
     if args.command == "validate":
-        is_valid = validate_file(args.filepath)
-        if is_valid:
+        resultat = validate_file(args.filepath)
+        
+        # Test sur la clé spécifique "valid"
+        if resultat["valid"]:
             logger.info("=> Succès: Le fichier est valide.")
             sys.exit(0)
         else:
             logger.error("=> Erreur: Le fichier est invalide.")
+            # Affichage des erreurs
+            for err in resultat["errors"]:
+                logger.error(f"[{err['table']}] {err['message']}")
             sys.exit(1)
 
 
