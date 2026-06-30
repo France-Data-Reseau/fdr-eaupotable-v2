@@ -7,3 +7,20 @@ services:
   worker:
     volumes:
       - ./src:/app/src
+
+  keycloak:
+    image: keycloak/keycloak:24.0
+    command: start-dev --import-realm
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_DB: dev-file
+      KC_HOSTNAME: localhost
+      KC_HOSTNAME_PORT: 8080
+      KC_HOSTNAME_STRICT_BACKCHANNEL: "false"
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./fdr-realm.json:/opt/keycloak/data/import/fdr-realm.json
+    networks:
+      - fdr_network

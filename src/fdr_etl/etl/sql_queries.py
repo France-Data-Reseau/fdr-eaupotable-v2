@@ -1,32 +1,82 @@
-def get_geom_cast_query(table_name: str, geom_type: str, import_id_str: str, target_srid: int = 2154) -> str:
+def get_geom_cast_query(table_name: str, geom_type: str, import_id_str: str, target_srid: int = 2154) -> list[str]:
     """
-    Garantit le stockage PostGIS et applique de manière robuste la projection.
-    Détecte automatiquement si la donnée entrante est en degrés (GPS) ou déjà en mètres (Projetée),
-    """
-    return f"""
-        -- On s'assure que le type de colonne permet le stockage PostGIS
-        ALTER TABLE {table_name} ALTER COLUMN geom TYPE geometry;
+    Retourne une liste de requêtes SQL à exécuter séquentiellement.
+    psycopg n'accepte pas plusieurs statements dans un seul cur.execute(),
+    donc on sépare chaque étape dans sa propre chaîne.
 
-        -- Mise à jour adaptative basée sur les étendues de coordonnées de chaque ligne
+    Étapes :
+        1. Cast BYTEA → geometry (sans SRID)
+        2. Création de la table de quarantaine
+        3. Mise en quarantaine des géométries invalides
+        4. Nullification des géométries invalides
+        5. Projection adaptative GPS (4326) ou projetée (target_srid)
+        6. Typage strict de la colonne finale
+    """
+    return [
+        # Étape 1 : Cast BYTEA → geometry brute
+        f"""
+        ALTER TABLE {table_name} ALTER COLUMN geom TYPE geometry
+            USING CASE
+                WHEN geom IS NOT NULL THEN ST_GeomFromWKB(geom)
+                ELSE NULL
+            END;
+        """,
+
+        # Étape 2 : Table de quarantaine (idempotente)
+        """
+        CREATE TABLE IF NOT EXISTS geom_quarantine (
+            table_name  TEXT,
+            fid         TEXT,
+            file_id     TEXT,
+            reason      TEXT,
+            captured_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """,
+
+        # Étape 3 : Mise en quarantaine des géométries invalides
+        f"""
+        INSERT INTO geom_quarantine (table_name, fid, file_id, reason)
+        SELECT
+            '{table_name}',
+            fid::text,
+            file_id,
+            ST_IsValidReason(geom)
+        FROM {table_name}
+        WHERE file_id = '{import_id_str}'
+          AND geom IS NOT NULL
+          AND NOT ST_IsValid(geom);
+        """,
+
+        # Étape 4 : Nullification des géométries invalides
+        f"""
         UPDATE {table_name}
-        SET geom = CASE 
-            -- Si la géométrie est manifestement en degrés
-            WHEN ST_XMin(ST_GeomFromWKB(geom)) BETWEEN -180.0 AND 180.0 
-                 AND ST_XMax(ST_GeomFromWKB(geom)) BETWEEN -180.0 AND 180.0
-                 AND ST_YMin(ST_GeomFromWKB(geom)) BETWEEN -90.0 AND 90.0
-                 AND ST_YMax(ST_GeomFromWKB(geom)) BETWEEN -90.0 AND 90.0
-            THEN 
-                ST_Transform(
-                    ST_SetSRID(ST_GeomFromWKB(geom), 4326), 
-                    {target_srid}
-                )
-            -- Si la géométrie est déjà sous forme métrique / projetée
-            ELSE 
-                ST_SetSRID(ST_GeomFromWKB(geom), {target_srid})
+        SET geom = NULL
+        WHERE file_id = '{import_id_str}'
+          AND geom IS NOT NULL
+          AND NOT ST_IsValid(geom);
+        """,
+
+        # Étape 5 : Projection adaptative
+        f"""
+        UPDATE {table_name}
+        SET geom = CASE
+            WHEN ST_XMin(geom) BETWEEN -180.0 AND 180.0
+                 AND ST_XMax(geom) BETWEEN -180.0 AND 180.0
+                 AND ST_YMin(geom) BETWEEN  -90.0 AND  90.0
+                 AND ST_YMax(geom) BETWEEN  -90.0 AND  90.0
+            THEN ST_Transform(ST_SetSRID(geom, 4326), {target_srid})
+            ELSE ST_SetSRID(geom, {target_srid})
         END
         WHERE file_id = '{import_id_str}'
           AND geom IS NOT NULL;
-    """
+        """,
+
+        # Étape 6 : Typage strict de la colonne finale
+        f"""
+        ALTER TABLE {table_name} ALTER COLUMN geom TYPE geometry({geom_type}, {target_srid})
+            USING geom::geometry({geom_type}, {target_srid});
+        """,
+    ]
 
 def get_transformation_queries(import_id_str: str) -> dict:
     """

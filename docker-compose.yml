@@ -14,7 +14,7 @@ services:
       - "5432:5432"
     restart: unless-stopped
     networks:
-          - fdr_network
+      - fdr_network
 
   redis:
     image: redis:alpine
@@ -31,6 +31,13 @@ services:
       - REDIS_URL=${REDIS_URL}
       - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://redis:6379/0}
       - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
+      - KEYCLOAK_URL=http://keycloak:8080
+      - KEYCLOAK_ISSUER=http://localhost:8080
+      - KEYCLOAK_REALM=fdr
+      - KEYCLOAK_CLIENT_ID=fdr-etl
+      - SUPERSET_INTERNAL_URL=http://superset:8088
+      - SUPERSET_SERVICE_USERNAME=${SUPERSET_SERVICE_USERNAME}
+      - SUPERSET_SERVICE_PASSWORD=${SUPERSET_SERVICE_PASSWORD}
     ports:
       - "8000:5000"
     volumes:
@@ -38,7 +45,8 @@ services:
     depends_on:
       - db
       - redis
-    command: [ "uvicorn", "fdr_etl.web.app:app", "--host", "0.0.0.0", "--port", "5000" ]
+      - keycloak
+    command: ["uvicorn", "fdr_etl.web.app:app", "--host", "0.0.0.0", "--port", "5000"]
     restart: unless-stopped
     networks:
       - fdr_network
@@ -58,8 +66,9 @@ services:
     depends_on:
       - db
       - redis
-    command: [ "celery", "-A", "fdr_etl.worker.app.celery_app", "worker", "--loglevel=info" ]
+    command: ["celery", "-A", "fdr_etl.worker.app.celery_app", "worker", "--loglevel=info"]
     restart: unless-stopped
+
   superset:
     build:
       context: .
@@ -71,9 +80,10 @@ services:
     environment:
       - SUPERSET_CONFIG_PATH=/app/pythonpath/superset_config.py
       - SUPERSET_FEATURE_EMBEDDED_DASHBOARD=true
-      - SUPERSET_SECRET_KEY=une_cle_tres_secrete_123
+      - SUPERSET_SECRET_KEY=${SUPERSET_SECRET_KEY}
       - SQLALCHEMY_DATABASE_URI=postgresql://postgres:postgres@db:5432/fdr_db
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/fdr_db
+      - SUPERSET_KEYCLOAK_SECRET=superset-secret-change-in-prod
     depends_on:
       - db
     networks:
@@ -81,9 +91,13 @@ services:
     volumes:
       - superset_home:/app/superset_home
       - ./superset_config.py:/app/pythonpath/superset_config.py
+    extra_hosts:
+      - "kc-host:host-gateway"
+
 networks:
   fdr_network:
     driver: bridge
+
 volumes:
   postgres_data:
   uploads_data:

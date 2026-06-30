@@ -77,15 +77,3 @@ Le `Makefile` simplifie les interactions courantes :
 | `make shell-db` | Ouvre une console `psql` sur la base de données |
 
 *Note : Ajoutez `ENV=prod` à n'importe quelle commande pour cibler l'environnement de production.*
-
-
-# Configuration de Superset
-docker exec -it -u root superset pip install --target=/app/.venv/lib/python3.10/site-packages psycopg2-binary
-
-docker restart superset
-
-Vérification :
-docker exec -it superset ls /app/.venv/lib/python3.10/site-packages | grep psycopg2
-
-Connexion d'une database avec URI SQLAlchemy :
-postgresql+psycopg2://postgres:postgres@172.19.0.2:5432/fdr_db

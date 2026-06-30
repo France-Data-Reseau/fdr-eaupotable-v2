@@ -8,20 +8,34 @@ authors = [
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "celery",
-    "redis",
-    "sqlalchemy",
-    "psycopg",
-    "psycopg-binary",
-    "python-dotenv",
-    "frictionless[sql]",
-    "pytest",
+    # --- Serveur web ---
     "fastapi",
     "uvicorn[standard]",
-    "python-multipart",
-    "jinja2",
+    "python-multipart",      # upload de fichiers
+    "jinja2",                # templates HTML
+    "httpx",                 # appels HTTP (requis par fastapi-oidc)
+
+    # --- Authentification OIDC ---
+    "fastapi-oidc",
+    "python-jose[cryptography]",  # vérification JWT (dépendance de fastapi-oidc)
+
+    # --- Worker Celery ---
+    "celery",
+    "redis",
+
+    # --- Base de données ---
+    "sqlalchemy",
+    "psycopg[binary]", # ← remplace "psycopg" + "psycopg-binary"
+
+    # --- ETL / Validation ---
+    "python-dotenv",
+    "frictionless[sql]",
+
+    # --- Calculs ---
     "pandas",
-    "numpy"
+    "numpy",
+    "scipy",
+    "pytest"
 ]
 
 [project.scripts]

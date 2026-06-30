@@ -13,6 +13,9 @@
             --border: #e2e8f0;
             --accent: #f59e0b;
             --success: #22c55e;
+            --warning-bg: #fffbeb;
+            --warning-border: #fef3c7;
+            --warning-text: #b45309;
         }
 
         body {
@@ -76,27 +79,32 @@
 
         #submitBtn { background-color: var(--primary); }
         #submitBtn:hover { background-color: #1d4ed8; transform: scale(1.01); }
-        
-        #loadDataBtn { 
-            background-color: var(--accent); 
+
+        #loadDataBtn {
+            background-color: var(--accent);
             display: none;
         }
         #loadDataBtn:hover { background-color: #d97706; transform: scale(1.01); }
 
         button:disabled { background-color: #94a3b8 !important; cursor: not-allowed; transform: none !important; }
-        
+
         #exportBtn:hover {
             background-color: #475569 !important;
         }
         .status-success {
             background-color: #dcfce7 !important;
             color: #166534 !important;
-            border: 1px solid #bbf7d0;
+            border: 1px solid #bbf7d0 !important;
+        }
+        .status-warning {
+            background-color: var(--warning-bg) !important;
+            color: var(--warning-text) !important;
+            border: 1px solid #fde68a !important;
         }
         .status-error {
             background-color: #fee2e2 !important;
             color: #991b1b !important;
-            border: 1px solid #fecaca;
+            border: 1px solid #fecaca !important;
         }
         #status-container {
             margin: 15px auto;
@@ -127,7 +135,7 @@
             border-bottom: 1px solid #fecdd3;
         }
         .error-item:last-child { border-bottom: none; }
-        
+
         .validation-log {
             background: #f8fafc;
             border: 1px solid #e2e8f0;
@@ -139,12 +147,16 @@
             font-size: 13px;
             display: none;
         }
-        
-        .log-entry { margin-bottom: 5px; padding-left: 20px; position: relative; }
-        .log-entry.success::before { content: "✅"; position: absolute; left: 0; }
-        .log-entry.error::before { content: "❌"; position: absolute; left: 0; }
+
+        .log-entry { margin-bottom: 8px; padding-left: 25px; position: relative; line-height: 1.4; }
+        .log-entry.success::before { content: "🟢"; position: absolute; left: 0; }
+        .log-entry.warning::before { content: "🟠"; position: absolute; left: 0; }
+        .log-entry.error::before { content: "🔴"; position: absolute; left: 0; }
         .log-table-name { font-weight: bold; color: var(--primary); }
-        
+        .log-severity-badge { font-size: 10px; font-weight: bold; padding: 2px 5px; border-radius: 4px; margin-right: 5px; color: white; display: inline-block; vertical-align: middle; }
+        .badge-warning { background-color: var(--accent); }
+        .badge-error { background-color: #ef4444; }
+
         .spinner {
             border: 2px solid rgba(0, 0, 0, 0.1);
             width: 16px;
@@ -174,7 +186,6 @@
             height: 100%;
             border: none;
         }
-        /* Conteneur pour centrer le bouton sans qu'il s'étende */
         .template-download-container {
             margin-bottom: 30px;
             display: flex;
@@ -216,7 +227,7 @@
     <div class="header">
         <h1>FDR Eau Potable ETL</h1>
         <p style="color: #64748b;">Partager des données relatives aux réseaux de distribution
-             d’eau potable pour caractériser les risques de défaillances, évaluer les besoins en renouvellement
+             d'eau potable pour caractériser les risques de défaillances, évaluer les besoins en renouvellement
               des canalisations et orienter les stratégies de gestion patrimoniale</p>
     </div>
     <div style="margin-bottom: 20px; text-align: center;">
@@ -243,13 +254,94 @@
     <div id="status-container" style="max-width: 800px; margin: 15px auto; padding: 25px 15px 15px 15px; border-radius: 8px; display: none; text-align: center; position: relative;">
         <div id="spinner" class="spinner"></div>
         <span id="status-text">Attente...</span>
-        <button id="exportBtn" title="Exporter les erreurs en .txt" 
+        <button id="exportBtn" title="Exporter les erreurs en .txt"
                 style="display:none; position: absolute; top: 10px; right: 10px; width: auto !important; min-width: 80px; background-color: #64748b; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; line-height: 1.2; z-index: 10;">
             📄 Exporter .txt
         </button>
-    </div>    
+    </div>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <div id="map" style="height: 600px; width: 100%; display: none;"></div>
 
     <div id="superset-container"></div>
+
+    <!-- ────────────────────────────────────────────────────────
+         AUTHENTIFICATION OIDC 
+    ──────────────────────────────────────────────────────────── -->
+    <script>
+        // ── Configuration Keycloak ───────────────────────────
+        const KEYCLOAK_URL = "http://localhost:8080";
+        const REALM        = "fdr";
+        const CLIENT_ID    = "fdr-etl";
+        const REDIRECT_URI = encodeURIComponent(window.location.origin + "/");
+
+        // ── Stockage du token ────────────────────────────────
+        function saveToken(token, expiresIn) {
+            localStorage.setItem("fdr_token", token);
+            localStorage.setItem("fdr_token_expiry", Date.now() + expiresIn * 1000);
+        }
+
+        function getToken() {
+            const token  = localStorage.getItem("fdr_token");
+            const expiry = localStorage.getItem("fdr_token_expiry");
+            if (token && expiry && Date.now() < parseInt(expiry)) return token;
+            localStorage.removeItem("fdr_token");
+            localStorage.removeItem("fdr_token_expiry");
+            return null;
+        }
+
+        // ── Redirection vers Keycloak ────────────────────────
+        function redirectToLogin() {
+            window.location.href =
+                `${KEYCLOAK_URL}/realms/${REALM}/protocol/openid-connect/auth`
+                + `?client_id=${CLIENT_ID}`
+                + `&redirect_uri=${REDIRECT_URI}`
+                + `&response_type=token`
+                + `&scope=openid`;
+        }
+
+        // ── Retour depuis Keycloak (token dans le hash URL) ──
+        function handleCallback() {
+            const params    = new URLSearchParams(window.location.hash.substring(1));
+            const token     = params.get("access_token");
+            const expiresIn = params.get("expires_in");
+            if (token) {
+                saveToken(token, parseInt(expiresIn));
+                window.history.replaceState({}, document.title, "/");
+                return true;
+            }
+            return false;
+        }
+
+        // ── Injection automatique du token dans tous les fetch ──
+        const _fetch = window.fetch;
+        window.fetch = function(url, options = {}) {
+            const token = getToken();
+            if (token && typeof url === "string" && url.startsWith("/")) {
+                options.headers = { ...options.headers, "Authorization": `Bearer ${token}` };
+            }
+            return _fetch(url, options).then(response => {
+                console.log(`[fetch] ${url} → ${response.status}`);
+                if (response.status === 401) {
+                    console.log("[fetch] Token:", token ? token.substring(0, 50) + "..." : "NULL");
+                    setTimeout(redirectToLogin, 2000); // DEBUG
+                }
+                return response;
+            });
+        };
+
+        // ── Point d'entrée ───────────────────────────────────
+        (function init() {
+            const justLoggedIn = handleCallback();
+            if (!justLoggedIn && !getToken()) {
+                redirectToLogin();
+            }
+            // Si on a un token, la page continue à charger normalement
+        })();
+    </script>
+
 
     <script>
         const fileInput = document.getElementById('fileInput');
@@ -266,8 +358,11 @@
 
         let selectedFile = null;
         let lastValidationErrors = [];
-        let validatedFilepath = null; // Stocke le chemin renvoyé par le backend après validation
-        let validatedImportId = null; // Stocke l'UUID généré à l'upload
+        let validatedFilepath = null;
+        let validatedImportId = null;
+        let currentValidationReport = null;
+        let validationTaskId = null;
+        let initialBoundsDone = false;
 
         fileInput.addEventListener('change', () => {
             if (fileInput.files.length > 0) {
@@ -275,7 +370,6 @@
                 fileNameDisplay.innerText = "Fichier : " + selectedFile.name;
                 fileNameDisplay.style.color = "var(--primary)";
                 submitBtn.disabled = false;
-                // Si on change de fichier, on reset le bouton 2
                 loadDataBtn.style.display = 'none';
             }
         });
@@ -299,31 +393,29 @@
         uploadForm.addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            // RÉINITIALISATION COMPLÈTE DE L'INTERFACE
             logContainer.style.display = 'none';
             logContainer.innerHTML = '';
             exportBtn.style.display = 'none';
             supersetDiv.style.display = 'none';
             loadDataBtn.style.display = 'none';
-            statusContainer.classList.remove('status-success', 'status-error');
+            statusContainer.classList.remove('status-success', 'status-warning', 'status-error');
             statusContainer.style.display = 'block';
             statusContainer.style.border = 'none';
             statusContainer.style.display = 'none';
-            
+
             const oldErrorList = statusContainer.querySelector('.error-list');
             if (oldErrorList) oldErrorList.remove();
 
-            // VÉRIFICATION DU FICHIER
             if (!selectedFile) {
                 statusContainer.style.display = 'block';
                 statusContainer.style.border = '1px solid #f59e0b';
+                statusContainer.style.background = "var(--warning-bg)";
                 statusText.innerText = "⚠️ Veuillez sélectionner un fichier .gpkg.";
-                statusText.style.color = "#b45309";
+                statusText.style.color = "var(--warning-text)";
                 document.getElementById('spinner').style.display = 'none';
                 return;
             }
 
-            // ÉTAT DE CHARGEMENT
             document.getElementById('spinner').style.display = 'inline-block';
             submitBtn.disabled = true;
             statusContainer.style.display = 'block';
@@ -334,12 +426,15 @@
             formData.append("file", selectedFile);
 
             try {
-                // Appel vers l'endpoint de validation (ex: /upload qui lance run_validation_task)
                 const response = await fetch("/upload", { method: "POST", body: formData });
+                if (response.status === 401) {
+                showError("Votre session a expiré, vous allez être redirigé...");
+                return;
+                }
                 const data = await response.json();
                 if (response.status === 202) {
-                    // MODIFICATION : On mémorise l'import_id renvoyé immédiatement par /upload
-                    validatedImportId = data.import_id; 
+                    validatedImportId = data.import_id;
+                    validationTaskId = data.task_id;
                     pollValidation(data.task_id);
                 }
                 else showError("Erreur : " + data.error);
@@ -350,28 +445,61 @@
             const interval = setInterval(async () => {
                 const res = await fetch(`/status/${taskId}`);
                 const data = await res.json();
-                
+
                 if (data.status === "SUCCESS") {
                     clearInterval(interval);
                     const result = data.result;
-                    
+
                     if (result.status === "error") {
-                        showValidationLogs(result.errors || []);
-                        showError(result.message, result.errors);
+                        const reportErrors = result.errors || [];
+                        showValidationLogs(reportErrors);
+
+                        const reportWarnings = (result.validation_report && result.validation_report.warnings) ? result.validation_report.warnings : [];
+                        const allAnomalies = [...reportErrors, ...reportWarnings];
+
+                        showError(result.message, allAnomalies);
                     } else {
-                        // VALIDATION RÉUSSIE
-                        validatedFilepath = result.filepath; // On stocke le chemin pour l'étape 2
-                        showValidationLogs(result.validation_report || []);
-                        
-                        statusContainer.className = 'success';
-                        statusContainer.classList.add('status-success');
-                        statusContainer.style.border = '2px solid #22c55e';
-                        statusContainer.classList.remove('status-error');
-                        statusText.innerText = "Schéma validé ! Le fichier est prêt pour l'intégration.";
-                        statusText.style.color = "#15803d";
+                        validatedFilepath = result.filepath;
+                        currentValidationReport = result.validation_report;
+
+                        const reportErrors = result.validation_report.errors || [];
+                        const reportWarnings = result.validation_report.warnings || [];
+                        const reportsAnomalies = [...reportErrors, ...reportWarnings];
+
+                        showValidationLogs(reportErrors);
+
                         document.getElementById('spinner').style.display = 'none';
-                        
-                        // DÉBLOCAGE DU BOUTON 2
+                        statusContainer.className = '';
+
+                        const oldList = statusContainer.querySelector('.error-list');
+                        if (oldList) oldList.remove();
+
+                        if (result.status === "warning") {
+                            statusContainer.classList.add('status-warning');
+                            statusText.innerHTML = `<strong>⚠️ ${result.message || "Schéma accepté avec des avertissements."}</strong>`;
+                            statusText.style.color = "var(--warning-text)";
+
+                            if (reportsAnomalies.length > 0) {
+                                lastValidationErrors = reportsAnomalies;
+                                exportBtn.style.display = 'inline-block';
+
+                                let listHtml = '<div class="error-list" style="background: #fffbeb; border: 1px solid #fde68a;">';
+                                reportsAnomalies.forEach(err => {
+                                    const cleanMsg = err.message ? err.message.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') : "Avertissement inconnu";
+                                    const badge = '<span class="log-severity-badge badge-warning">WARN</span>';
+                                    const tableName = err.table || "Table inconnue";
+                                    listHtml += `<div class="error-item" style="color: #b45309; border-bottom: 1px solid #fde68a;">${badge} <span class="log-table-name">${tableName}</span> : ${cleanMsg}</div>`;
+                                });
+                                listHtml += '</div>';
+                                statusContainer.insertAdjacentHTML('beforeend', listHtml);
+                            }
+                        } else {
+                            statusContainer.classList.add('status-success');
+                            statusText.innerHTML = `<strong>🟢 ${result.message || "Schéma validé à 100% ! Le fichier est prêt pour l'intégration."}</strong>`;
+                            statusText.style.color = "#15803d";
+                            exportBtn.style.display = 'none';
+                        }
+
                         loadDataBtn.style.display = 'block';
                         submitBtn.disabled = false;
                     }
@@ -379,7 +507,7 @@
                     clearInterval(interval);
                     showError("Erreur système lors de la validation.");
                 }
-            }, 50);
+            }, 1000);
         }
 
         // --- ACTION 2 : CHARGEMENT ET TRANSFORMATIONS ---
@@ -388,17 +516,20 @@
             submitBtn.disabled = true;
             document.getElementById('spinner').style.display = 'inline-block';
             statusContainer.className = 'loading';
-            statusText.innerText = "Chargement et intégration de la base de données";
+            statusContainer.classList.remove('status-success', 'status-warning', 'status-error');
+            statusText.innerText = "Chargement et intégration...";
+            statusText.style.color = "#1e40af";
 
             try {
-                // Appel vers l'endpoint d'intégration (ex: /integrate qui lance run_integration_task)
-                const response = await fetch("/integrate", { 
-                    method: "POST", 
+                const response = await fetch("/integrate", {
+                    method: "POST",
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ 
+                    body: JSON.stringify({
                         filepath: validatedFilepath,
-                        import_id: validatedImportId
-                    }) 
+                        import_id: validatedImportId,
+                        validation_report: currentValidationReport,
+                        validation_task_id: validationTaskId
+                    })
                 });
                 const data = await response.json();
                 if (response.status === 202) pollIntegration(data.task_id);
@@ -410,60 +541,96 @@
             const interval = setInterval(async () => {
                 const res = await fetch(`/status/${taskId}`);
                 const data = await res.json();
-                
+
                 if (data.status === "SUCCESS") {
                     clearInterval(interval);
                     statusContainer.className = 'success';
+                    statusContainer.classList.add('status-success');
                     statusText.innerText = "Intégration terminée ! Chargement du tableau de bord...";
+                    statusText.style.color = "#166534";
                     document.getElementById('spinner').style.display = 'none';
                     loadDataBtn.style.display = 'none';
-                    
-                    // AFFICHAGE DU DASHBOARD
+
                     setTimeout(() => {
+                        loadMap(validatedImportId);
                         loadSupersetDashboard();
                     }, 500);
                 } else if (data.status === "FAILURE") {
                     clearInterval(interval);
                     showError("Échec de l'intégration des données.");
                 }
-            }, 50);
+            }, 1000);
         }
 
-        // FONCTIONS UTILITAIRES (Inchangées)
         function showValidationLogs(errors) {
+            const errorList = Array.isArray(errors) ? errors : [];
+
             logContainer.style.display = 'block';
-            logContainer.innerHTML = '<h4>Rapport de conformité :</h4>';
+            logContainer.innerHTML = '<h4>Rapport détaillé de conformité :</h4>';
+
             const tables = ["eau_potable — aep_canalisation", "aep_perimetre", "eau_potable — aep_reparation"];
+
             tables.forEach(tableName => {
-                const tableErrors = errors.filter(e => e.table === tableName);
+                const tableAnomalies = errorList.filter(e => e.table === tableName);
                 const entry = document.createElement('div');
-                if (tableErrors.length === 0) {
+
+                if (tableAnomalies.length === 0) {
                     entry.className = 'log-entry success';
                     entry.innerHTML = `Table <span class="log-table-name">${tableName}</span> : Structure conforme.`;
                 } else {
-                    entry.className = 'log-entry error';
-                    entry.innerHTML = `Table <span class="log-table-name">${tableName}</span> : ${tableErrors.length} anomalie(s).`;
+                    const hasCriticalError = tableAnomalies.some(e => e.severity === 'error' || !e.is_non_blocking);
+                    const isTableMissing = tableAnomalies.some(e => e.message.toLowerCase().includes("absente"));
+
+                    if (hasCriticalError) {
+                        entry.className = 'log-entry error';
+                        if (isTableMissing) {
+                            entry.innerHTML = ` Table <span class="log-table-name">${tableName}</span> : <strong style="color: #991b1b;">Table absente de la base</strong>.`;
+                        } else {
+                            entry.innerHTML = ` Table <span class="log-table-name">${tableName}</span> : ${tableAnomalies.length} anomalie(s) bloquante(s).`;
+                        }
+                    } else {
+                        entry.className = 'log-entry warning';
+                        entry.innerHTML = `<span class="log-severity-badge badge-warning">WARNING</span> Table <span class="log-table-name">${tableName}</span> : ${tableAnomalies.length} alerte(s) mineure(s) détectée(s).`;
+                    }
+
+                    let subList = '<div style="margin-top: 5px; padding-left: 10px; font-size: 11px; color: #475569;">';
+                    tableAnomalies.forEach(anomaly => {
+                        const cleanAnomalyMsg = anomaly.message.replace(/\*\*(.*?)\*\"/g, '<strong>$1</strong>');
+                        const prefix = (anomaly.severity === 'warning' || anomaly.is_non_blocking) ? '⚠️' : '❌';
+                        subList += `<div>${prefix} ${cleanAnomalyMsg}</div>`;
+                    });
+                    subList += '</div>';
+                    entry.innerHTML += subList;
                 }
                 logContainer.appendChild(entry);
             });
         }
 
         function showError(msg, details = []) {
-            lastValidationErrors = details; 
+            lastValidationErrors = details;
             statusContainer.style.display = 'block';
-            statusContainer.style.background = "#fff1f2"; 
-            statusContainer.style.border = '2px solid #ef4444';
+            statusContainer.className = 'status-error';
             statusText.innerHTML = `<strong>❌ ${msg}</strong>`;
             statusText.style.color = "#b91c1c";
             document.getElementById('spinner').style.display = 'none';
+
             exportBtn.style.display = (details && details.length > 0) ? 'inline-block' : 'none';
+
             const oldList = statusContainer.querySelector('.error-list');
             if (oldList) oldList.remove();
+
             if (details && details.length > 0) {
-                let listHtml = '<div class="error-list">';
+                let listHtml = '<div class="error-list" style="background: #fef2f2; border: 1px solid #fca5a5;">';
                 details.forEach(err => {
-                    const cleanMsg = err.message.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-                    listHtml += `<div class="error-item"><span class="log-table-name">${err.table}</span> : ${cleanMsg}</div>`;
+                    const cleanMsg = err.message ? err.message.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') : "Anomalie inconnue";
+                    const isWarning = err.severity === 'warning' || err.is_non_blocking;
+                    const badge = isWarning
+                        ? '<span class="log-severity-badge badge-warning">WARN</span>'
+                        : '<span class="log-severity-badge badge-error">ERR</span>';
+                    const itemStyle = isWarning
+                        ? 'color: #b45309; border-bottom: 1px solid #fee2e2;'
+                        : 'color: #9f1239; border-bottom: 1px solid #fee2e2;';
+                    listHtml += `<div class="error-item" style="${itemStyle}">${badge} <span class="log-table-name">${err.table || 'Table inconnue'}</span> : ${cleanMsg}</div>`;
                 });
                 listHtml += '</div>';
                 statusContainer.insertAdjacentHTML('beforeend', listHtml);
@@ -476,22 +643,21 @@
         exportBtn.addEventListener('click', async () => {
             if (lastValidationErrors.length === 0) return;
 
-            // Préparation du contenu du fichier
-            let content = "RAPPORT D'ERREURS - FDR EAU POTABLE ETL\n";
+            let content = "RAPPORT D'ANOMALIES & DE CONFORMITÉ - FDR EAU POTABLE ETL\n";
             content += "Généré le : " + new Date().toLocaleString() + "\n";
-            content += "------------------------------------------\n\n";
+            content += "--------------------------------------------------------\n\n";
 
             lastValidationErrors.forEach(err => {
                 const textMsg = err.message.replace(/\*\*/g, '');
-                content += `[${err.table}]\n${textMsg}\n\n`;
+                const severityLabel = (err.severity === 'warning' || err.is_non_blocking) ? "ATTENTION" : "CRITIQUE";
+                content += `[${severityLabel}][Table: ${err.table}]\n${textMsg}\n\n`;
             });
 
-            // Tentative d'utilisation de l'API moderne "Enregistrer sous"
             if ('showSaveFilePicker' in window) {
                 try {
                     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 10);
                     const handle = await window.showSaveFilePicker({
-                        suggestedName: `erreurs_validation_${timestamp}.txt`,
+                        suggestedName: `rapport_conformite_${timestamp}.txt`,
                         types: [{
                             description: 'Fichier texte',
                             accept: {'text/plain': ['.txt']},
@@ -500,21 +666,18 @@
                     const writable = await handle.createWritable();
                     await writable.write(content);
                     await writable.close();
-                    return; // Succès, on s'arrête ici
+                    return;
                 } catch (err) {
-                    if (err.name === 'AbortError') return; // L'utilisateur a annulé
+                    if (err.name === 'AbortError') return;
                     console.error("Erreur SavePicker:", err);
-                    // En cas d'erreur, on bascule sur la méthode classique
                 }
             }
 
-            // --- MÉTHODE CLASSIQUE (Fallback) ---
-            // Utilisée si le navigateur est ancien ou si l'API échoue
             const blob = new Blob([content], { type: 'text/plain' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `erreurs_validation_export.txt`;
+            a.download = `rapport_conformite.txt`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -525,18 +688,16 @@
         const downloadTemplateBtn = document.getElementById('downloadTemplateBtn');
 
         downloadTemplateBtn.addEventListener('click', async (e) => {
-            e.preventDefault(); // Empêche le comportement par défaut du lien
-            
+            e.preventDefault();
+
             const fileUrl = "/schemas/FDR_eau_potable_V6.gpkg";
             const fileName = "FDR_eau_potable_V6.gpkg";
 
             try {
-                // Récupération du fichier depuis le serveur
                 const response = await fetch(fileUrl);
                 if (!response.ok) throw new Error("Impossible de récupérer le modèle sur le serveur.");
                 const blob = await response.blob();
 
-                // Tentative avec l'API moderne "Enregistrer sous"
                 if ('showSaveFilePicker' in window) {
                     try {
                         const handle = await window.showSaveFilePicker({
@@ -549,15 +710,13 @@
                         const writable = await handle.createWritable();
                         await writable.write(blob);
                         await writable.close();
-                        return; // Succès
+                        return;
                     } catch (err) {
                         if (err.name === 'AbortError') return;
                         console.error("Erreur SavePicker:", err);
-                        // Si échec ou refus, on continue vers le fallback
                     }
                 }
 
-                // MÉTHODE CLASSIQUE (Fallback)
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
@@ -572,6 +731,7 @@
                 alert("Erreur lors du téléchargement du gabarit.");
             }
         });
+
         async function loadSupersetDashboard() {
             supersetDiv.style.display = 'block';
             try {
@@ -585,10 +745,69 @@
                     dashboardUiConfig: { hideTitle: true, hideChartControls: false, filters: { visible: true, expanded: false } },
                 });
             } catch (err) { console.error("Erreur Superset:", err); }
-            // MASQUER LE MESSAGE APRÈS 2 SECONDES
-                setTimeout(() => {
-                    statusContainer.style.display = 'none'; 
-                }, 2000);
+        }
+
+        // ── Carte Leaflet ────────────────────────────────────────────────────
+        let map = null;
+        let canalLayer = null;      // Référence directe — évite de parcourir toutes les couches
+        let currentImportId = null;
+
+        async function loadMap(import_id) {
+            currentImportId = import_id;
+            initialBoundsDone = false;
+            const mapDiv = document.getElementById('map');
+            mapDiv.style.display = 'block';
+
+            // Initialisation unique de la carte
+            if (!map) {
+                map = L.map('map').setView([47.0, 2.0], 6);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors',
+                    maxZoom: 19
+                }).addTo(map);
+
+                // Rechargement avec simplification adaptative à chaque changement de zoom
+                map.on('zoomend', () => {
+                    if (currentImportId) fetchAndRender(currentImportId);
+                });
+            }
+
+            await fetchAndRender(import_id);
+            map.invalidateSize();
+        }
+
+        async function fetchAndRender(import_id) {
+            const zoom = map ? map.getZoom() : 12;
+
+            try {
+                const response = await fetch(`/api/get-network/${import_id}?zoom=${zoom}`);
+                if (!response.ok) {
+                    console.error('[Map] Erreur API :', response.status);
+                    return;
+                }
+                const geojson = await response.json();
+
+                if (canalLayer) { map.removeLayer(canalLayer); canalLayer = null; }
+
+                if (!geojson || !geojson.features || geojson.features.length === 0) {
+                    console.warn('[Map] Aucune donnée à afficher pour cet import_id');
+                    return;
+                }
+
+                canalLayer = L.geoJSON(geojson, {
+                    style: { color: '#2563eb', weight: 2, opacity: 0.85 },
+                    renderer: L.canvas()
+                }).addTo(map);
+
+                // fitBounds uniquement au premier chargement
+                if (!initialBoundsDone && canalLayer.getBounds().isValid()) {
+                    map.fitBounds(canalLayer.getBounds());
+                    initialBoundsDone = true;
+                }
+
+            } catch (err) {
+                console.error('[Map] Erreur chargement GeoJSON :', err);
+            }
         }
     </script>
 </body>
