@@ -272,9 +272,9 @@
     ──────────────────────────────────────────────────────────── -->
     <script>
         // ── Configuration Keycloak ───────────────────────────
-        const KEYCLOAK_URL = "http://localhost:8080";
-        const REALM        = "fdr";
-        const CLIENT_ID    = "fdr-etl";
+        const KEYCLOAK_URL = "{{ keycloak_issuer }}";
+        const REALM        = "{{ keycloak_realm }}";
+        const CLIENT_ID    = "{{ keycloak_client_id }}";
         const REDIRECT_URI = encodeURIComponent(window.location.origin + "/");
 
         // ── Stockage du token ────────────────────────────────

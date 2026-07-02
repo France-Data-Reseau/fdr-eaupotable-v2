@@ -47,22 +47,25 @@ TALISMAN_CONFIG = {
 AUTH_TYPE = AUTH_OAUTH
 
 # Keycloak
+
+KC_INTERNAL_BASE = os.getenv("KEYCLOAK_SUPERSET_INTERNAL_URL", "http://kc-host:8080")
+KC_INTERNAL = f"{KC_INTERNAL_BASE}/realms/{os.getenv('KEYCLOAK_REALM', 'fdr')}/protocol/openid-connect"
+KC_PUBLIC = f"{os.getenv('KEYCLOAK_ISSUER', 'http://localhost:8080')}/realms/{os.getenv('KEYCLOAK_REALM', 'fdr')}/protocol/openid-connect"
+
 OAUTH_PROVIDERS = [
     {
         "name": "keycloak",
         "icon": "fa-key",
         "token_key": "access_token",
         "remote_app": {
-            "client_id": "fdr-superset",
-            "client_secret": "superset-secret-change-in-prod",
-            "api_base_url": "http://kc-host:8080/realms/fdr/protocol/openid-connect",
-            "client_kwargs": {
-                "scope": "openid email profile"
-            },
-            "access_token_url": "http://kc-host:8080/realms/fdr/protocol/openid-connect/token",
-            "authorize_url": "http://localhost:8080/realms/fdr/protocol/openid-connect/auth",
-            "jwks_uri": "http://kc-host:8080/realms/fdr/protocol/openid-connect/certs",
-            "server_metadata_url": "http://kc-host:8080/realms/fdr/.well-known/openid-configuration",
+            "client_id": os.getenv("KEYCLOAK_SUPERSET_CLIENT_ID", "fdr-superset"),
+            "client_secret": os.getenv("KEYCLOAK_SUPERSET_SECRET", ""),
+            "api_base_url": KC_INTERNAL,
+            "client_kwargs": {"scope": "openid email profile"},
+            "access_token_url": f"{KC_INTERNAL}/token",
+            "authorize_url": f"{KC_PUBLIC}/auth",
+            "jwks_uri": f"{KC_INTERNAL}/certs",
+            "server_metadata_url": f"{KC_INTERNAL_BASE}/realms/{os.getenv('KEYCLOAK_REALM', 'fdr')}/.well-known/openid-configuration",
         },
     }
 ]

@@ -104,8 +104,11 @@ def create_app() -> FastAPI:
 
     @app.get("/")
     def index(request: Request):
-        """Sert le frontend — la gestion du login est côté JS."""
-        return templates.TemplateResponse(request=request, name="index.html")
+        return templates.TemplateResponse(request=request, name="index.html", context={
+            "keycloak_issuer": Config.KEYCLOAK_ISSUER,
+            "keycloak_realm": Config.KEYCLOAK_REALM,
+            "keycloak_client_id": Config.KEYCLOAK_CLIENT_ID,
+        })
 
     @app.get("/status/{task_id}")
     async def get_status(task_id: str):

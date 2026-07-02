@@ -83,7 +83,11 @@ services:
       - SUPERSET_SECRET_KEY=${SUPERSET_SECRET_KEY}
       - SQLALCHEMY_DATABASE_URI=postgresql://postgres:postgres@db:5432/fdr_db
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/fdr_db
-      - SUPERSET_KEYCLOAK_SECRET=superset-secret-change-in-prod
+      - KEYCLOAK_SUPERSET_INTERNAL_URL=${KEYCLOAK_SUPERSET_INTERNAL_URL}
+      - KEYCLOAK_SUPERSET_CLIENT_ID=${KEYCLOAK_SUPERSET_CLIENT_ID}
+      - KEYCLOAK_SUPERSET_SECRET=${KEYCLOAK_SUPERSET_SECRET}
+      - KEYCLOAK_REALM=${KEYCLOAK_REALM}
+      - KEYCLOAK_ISSUER=${KEYCLOAK_ISSUER}
     depends_on:
       - db
     networks:
