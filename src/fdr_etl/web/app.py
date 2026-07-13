@@ -1,24 +1,21 @@
 import os
-import uuid
 import re
-import requests
+import uuid
 
 import psycopg
+import requests
+from celery.result import AsyncResult
+from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, UploadFile
+from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from fastapi_oidc import IDToken, get_auth
 from psycopg.rows import dict_row
 
-from fastapi import FastAPI, UploadFile, File, Request, HTTPException, Query, Depends
-from fastapi.responses import JSONResponse
-from fastapi.templating import Jinja2Templates
-from fastapi.staticfiles import StaticFiles
-
-from fastapi_oidc import IDToken, get_auth
-
 from fdr_etl.core.config import Config
-from fdr_etl.worker.tasks import run_validation_task, run_integration_task
 from fdr_etl.etl.load import extract_siren_from_gpkg
-
-from celery.result import AsyncResult
 from fdr_etl.worker.app import celery_app
+from fdr_etl.worker.tasks import run_integration_task, run_validation_task
 
 DASHBOARD_ID = "c1910792-88c6-4ede-b65d-997cdd4652a0"
 
@@ -38,14 +35,16 @@ authenticate = get_auth(
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def secure_filename(filename: str) -> str:
     """Restreint les caractères aux alphanumériques, points, underscores, tirets."""
     if not filename:
         return "unnamed_file"
     filename = os.path.basename(filename)
-    filename = re.sub(r'[^a-zA-Z0-9_.-]', '_', filename)
-    filename = filename.strip('_.-')
+    filename = re.sub(r"[^a-zA-Z0-9_.-]", "_", filename)
+    filename = filename.strip("_.-")
     return filename if filename else "unnamed_file"
+
 
 def fetch_superset_guest_token(dashboard_id: str):
     """
@@ -57,7 +56,7 @@ def fetch_superset_guest_token(dashboard_id: str):
     auth_payload = {
         "username": Config.SUPERSET_SERVICE_USERNAME,
         "password": Config.SUPERSET_SERVICE_PASSWORD,
-        "provider": "db"
+        "provider": "db",
     }
     auth_res = requests.post(f"{superset_url}/api/v1/security/login", json=auth_payload)
     if auth_res.status_code != 200:
@@ -67,20 +66,26 @@ def fetch_superset_guest_token(dashboard_id: str):
 
     headers = {"Authorization": f"Bearer {token}"}
     guest_payload = {
-        "user": {"username": "fdr_guest", "first_name": "Jonathan", "last_name": "Brans"},
+        "user": {
+            "username": "fdr_guest",
+            "first_name": "Jonathan",
+            "last_name": "Brans",
+        },
         "resources": [{"type": "dashboard", "id": dashboard_id}],
-        "rls": []
+        "rls": [],
     }
     guest_res = requests.post(
         f"{superset_url}/api/v1/security/guest_token/",
         json=guest_payload,
-        headers=headers
+        headers=headers,
     )
     return guest_res.json().get("token")
+
 
 # ---------------------------------------------------------------------------
 # Application
 # ---------------------------------------------------------------------------
+
 
 def create_app() -> FastAPI:
     app = FastAPI(title="FDR ETL API")
@@ -104,11 +109,15 @@ def create_app() -> FastAPI:
 
     @app.get("/")
     def index(request: Request):
-        return templates.TemplateResponse(request=request, name="index.html", context={
-            "keycloak_issuer": Config.KEYCLOAK_ISSUER,
-            "keycloak_realm": Config.KEYCLOAK_REALM,
-            "keycloak_client_id": Config.KEYCLOAK_CLIENT_ID,
-        })
+        return templates.TemplateResponse(
+            request=request,
+            name="index.html",
+            context={
+                "keycloak_issuer": Config.KEYCLOAK_ISSUER,
+                "keycloak_realm": Config.KEYCLOAK_REALM,
+                "keycloak_client_id": Config.KEYCLOAK_CLIENT_ID,
+            },
+        )
 
     @app.get("/status/{task_id}")
     async def get_status(task_id: str):
@@ -120,7 +129,7 @@ def create_app() -> FastAPI:
         response = {
             "task_id": task_id,
             "status": task_result.status,
-            "result": task_result.result if task_result.ready() else None
+            "result": task_result.result if task_result.ready() else None,
         }
         return JSONResponse(content=response)
 
@@ -133,10 +142,7 @@ def create_app() -> FastAPI:
         token = fetch_superset_guest_token(DASHBOARD_ID)
         if not token:
             raise HTTPException(status_code=500, detail="Erreur Superset")
-        return {
-            "token": token,
-            "dashboard_id": DASHBOARD_ID
-        }
+        return {"token": token, "dashboard_id": DASHBOARD_ID}
 
     @app.post("/upload")
     async def upload_file(
@@ -162,8 +168,8 @@ def create_app() -> FastAPI:
                 "message": "Fichier reçu, traitement asynchrone lancé.",
                 "task_id": task.id,
                 "import_id": import_id,
-                "filepath": filepath
-            }
+                "filepath": filepath,
+            },
         )
 
     @app.post("/integrate")
@@ -187,8 +193,7 @@ def create_app() -> FastAPI:
 
         if not filepath or not os.path.exists(filepath):
             return JSONResponse(
-                {"error": "Fichier introuvable ou chemin invalide"},
-                status_code=400
+                {"error": "Fichier introuvable ou chemin invalide"}, status_code=400
             )
 
         if not collectivite_id:
@@ -202,20 +207,19 @@ def create_app() -> FastAPI:
                         "est absent et aucun numéro SIREN n'a été détecté dans la couche 'aep_perimetre'."
                     )
                 },
-                status_code=400
+                status_code=400,
             )
 
         if not import_id:
             return JSONResponse(
-                {"error": "Le paramètre 'import_id' est requis pour isoler les statistiques."},
-                status_code=400
+                {
+                    "error": "Le paramètre 'import_id' est requis pour isoler les statistiques."
+                },
+                status_code=400,
             )
 
         task = run_integration_task.delay(
-            filepath,
-            import_id,
-            collectivite_id,
-            validation_report=validation_report
+            filepath, import_id, collectivite_id, validation_report=validation_report
         )
 
         return JSONResponse(
@@ -223,8 +227,8 @@ def create_app() -> FastAPI:
             content={
                 "message": "Validation confirmée, intégration lancée.",
                 "task_id": task.id,
-                "import_id": import_id
-            }
+                "import_id": import_id,
+            },
         )
 
     @app.get("/api/get-network/{import_id}")
@@ -238,7 +242,8 @@ def create_app() -> FastAPI:
         try:
             with psycopg.connect(Config.DATABASE_URL, row_factory=dict_row) as conn:
                 with conn.cursor() as cur:
-                    cur.execute("""
+                    cur.execute(
+                        """
                         SELECT json_build_object(
                             'type', 'FeatureCollection',
                             'features', COALESCE(
@@ -260,14 +265,15 @@ def create_app() -> FastAPI:
                         FROM aep_canalisation
                         WHERE file_id = %(import_id)s
                           AND geom IS NOT NULL;
-                    """, {"import_id": import_id, "tolerance": tolerance})
+                    """,
+                        {"import_id": import_id, "tolerance": tolerance},
+                    )
 
                     result = cur.fetchone()
 
             if not result or not result.get("geojson"):
                 return JSONResponse(
-                    {"type": "FeatureCollection", "features": []},
-                    status_code=200
+                    {"type": "FeatureCollection", "features": []}, status_code=200
                 )
 
             return result["geojson"]
@@ -283,7 +289,8 @@ def create_app() -> FastAPI:
         try:
             with psycopg.connect(Config.DATABASE_URL, row_factory=dict_row) as conn:
                 with conn.cursor() as cur:
-                    cur.execute("""
+                    cur.execute(
+                        """
                         SELECT
                             backlog_total_km,
                             backlog_total_euro,
@@ -295,21 +302,26 @@ def create_app() -> FastAPI:
                         WHERE file_id = %s AND scope = 'INDIVIDUAL'
                         ORDER BY date_calcul DESC
                         LIMIT 1
-                    """, (import_id,))
+                    """,
+                        (import_id,),
+                    )
                     indicators = cur.fetchone()
 
-                    cur.execute("""
+                    cur.execute(
+                        """
                         SELECT annee, categorie_materiau, besoin_renouvellement_km, cout_renouvellement_euro
                         FROM besoin_renouvellement
                         WHERE file_id = %s AND scope = 'INDIVIDUAL'
                         ORDER BY annee, categorie_materiau
-                    """, (import_id,))
+                    """,
+                        (import_id,),
+                    )
                     projections = cur.fetchall()
 
                     return {
                         "indicators": indicators,
                         "projections": projections,
-                        "import_id": import_id
+                        "import_id": import_id,
                     }
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Erreur base de données : {e}")
@@ -344,10 +356,7 @@ def create_app() -> FastAPI:
                     """)
                     projections = cur.fetchall()
 
-                    return {
-                        "indicators": indicators,
-                        "projections": projections
-                    }
+                    return {"indicators": indicators, "projections": projections}
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Erreur base de données : {e}")
 

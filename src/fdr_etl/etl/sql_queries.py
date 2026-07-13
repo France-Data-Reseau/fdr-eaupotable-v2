@@ -1,4 +1,6 @@
-def get_geom_cast_query(table_name: str, geom_type: str, import_id_str: str, target_srid: int = 2154) -> list[str]:
+def get_geom_cast_query(
+    table_name: str, geom_type: str, import_id_str: str, target_srid: int = 2154
+) -> list[str]:
     """
     Retourne une liste de requêtes SQL à exécuter séquentiellement.
     psycopg n'accepte pas plusieurs statements dans un seul cur.execute(),
@@ -21,7 +23,6 @@ def get_geom_cast_query(table_name: str, geom_type: str, import_id_str: str, tar
                 ELSE NULL
             END;
         """,
-
         # Étape 2 : Table de quarantaine (idempotente)
         """
         CREATE TABLE IF NOT EXISTS geom_quarantine (
@@ -32,7 +33,6 @@ def get_geom_cast_query(table_name: str, geom_type: str, import_id_str: str, tar
             captured_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         """,
-
         # Étape 3 : Mise en quarantaine des géométries invalides
         f"""
         INSERT INTO geom_quarantine (table_name, fid, file_id, reason)
@@ -46,7 +46,6 @@ def get_geom_cast_query(table_name: str, geom_type: str, import_id_str: str, tar
           AND geom IS NOT NULL
           AND NOT ST_IsValid(geom);
         """,
-
         # Étape 4 : Nullification des géométries invalides
         f"""
         UPDATE {table_name}
@@ -55,7 +54,6 @@ def get_geom_cast_query(table_name: str, geom_type: str, import_id_str: str, tar
           AND geom IS NOT NULL
           AND NOT ST_IsValid(geom);
         """,
-
         # Étape 5 : Projection adaptative
         f"""
         UPDATE {table_name}
@@ -70,13 +68,13 @@ def get_geom_cast_query(table_name: str, geom_type: str, import_id_str: str, tar
         WHERE file_id = '{import_id_str}'
           AND geom IS NOT NULL;
         """,
-
         # Étape 6 : Typage strict de la colonne finale
         f"""
         ALTER TABLE {table_name} ALTER COLUMN geom TYPE geometry({geom_type}, {target_srid})
             USING geom::geometry({geom_type}, {target_srid});
         """,
     ]
+
 
 def get_transformation_queries(import_id_str: str) -> dict:
     """
@@ -103,13 +101,11 @@ def get_transformation_queries(import_id_str: str) -> dict:
             WHERE (date_pose < 1700 OR date_pose > EXTRACT(YEAR FROM CURRENT_DATE))
               AND file_id = '{import_id_str}';
         """,
-
         "Standardisation Numérique des Diamètres": f"""
             UPDATE aep_canalisation 
             SET diametre_num = NULLIF(REGEXP_REPLACE(diametre_equivalent, '[^0-9]', '', 'g'), '')::INTEGER
             WHERE file_id = '{import_id_str}';
         """,
-
         "Classification Diamètres": f"""
             UPDATE aep_canalisation SET dia_ens = CASE
                 WHEN diametre_num > 0 AND diametre_num < 64 THEN ']0;64['
@@ -119,8 +115,7 @@ def get_transformation_queries(import_id_str: str) -> dict:
             END
             WHERE file_id = '{import_id_str}';
         """,
-
-        "Classification Périodes de Pose": f"""
+        "Classification Périodes de Pose": rf"""
             UPDATE aep_canalisation SET ddp_ens = CASE
                 WHEN date_pose::text ~ '^\d+$' AND date_pose::int < 1900 THEN ']-1900['
                 WHEN date_pose::text ~ '^\d+$' AND date_pose::int >= 1900 AND date_pose::int < 1930 THEN '[1900;1930['
@@ -131,7 +126,6 @@ def get_transformation_queries(import_id_str: str) -> dict:
             END
             WHERE file_id = '{import_id_str}';
         """,
-
         "Jointure Spatiale - Étape 1/3 : Calcul des correspondances": f"""
             DROP TABLE IF EXISTS tmp_jointure_reparation;
             
@@ -158,11 +152,9 @@ def get_transformation_queries(import_id_str: str) -> dict:
             WHERE r.file_id = '{import_id_str}'
               AND r.geom IS NOT NULL;
         """,
-
-        "Jointure Spatiale - Étape 2/3 : Indexation de la Table Temp": f"""
+        "Jointure Spatiale - Étape 2/3 : Indexation de la Table Temp": """
             CREATE INDEX idx_tmp_jointure_rid ON tmp_jointure_reparation(rid);
         """,
-
         "Jointure Spatiale - Étape 3/3 : Application de l'UPDATE final": f"""
             UPDATE aep_reparation r
             SET 
@@ -184,5 +176,5 @@ def get_transformation_queries(import_id_str: str) -> dict:
               AND r.file_id = '{import_id_str}';
               
             DROP TABLE IF EXISTS tmp_jointure_reparation;
-        """
+        """,
     }

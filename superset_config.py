@@ -1,7 +1,9 @@
 # superset_config.py
-import os
 import logging
+import os
+
 from flask_appbuilder.security.manager import AUTH_OAUTH
+
 # Configuration du niveau de niveau de log global de Superset pour ignorer les warnings
 LOG_LEVEL = "ERROR"
 CONSOLE_LOG_LEVEL = "ERROR"
@@ -15,24 +17,24 @@ FEATURE_FLAGS = {
     "ALERT_REPORTS": True,
     "VIZ_PLUGINS": True,
     "EMBEDDED_DASHBOARD": True,
-    "EMBEDDED_SUPERSET": True
+    "EMBEDDED_SUPERSET": True,
 }
 
 ENABLE_CORS = True
 CORS_OPTIONS = {
-    'origins': ['http://localhost:8000'],
+    "origins": ["http://localhost:8000"],
 }
 
 SECRET_KEY = os.getenv("SUPERSET_SECRET_KEY")
 GUEST_TOKEN_JWT_SECRET = os.getenv("SUPERSET_SECRET_KEY")
-GUEST_TOKEN_JWT_ALGO = 'HS256'
+GUEST_TOKEN_JWT_ALGO = "HS256"
 GUEST_ROLE_NAME = "Public"
 
-SESSION_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_SAMESITE = "Lax"
 SESSION_COOKIE_SECURE = False
 SESSION_COOKIE_HTTPONLY = True
 
-HTTP_HEADERS = {'X-Frame-Options': 'ALLOWALL'}
+HTTP_HEADERS = {"X-Frame-Options": "ALLOWALL"}
 
 WTF_CSRF_ENABLED = False
 TALISMAN_CONFIG = {
@@ -86,14 +88,15 @@ AUTH_ROLES_SYNC_AT_LOGIN = True
 # Manager de sécurité personnalisé pour lire les rôles Keycloak
 from superset.security import SupersetSecurityManager
 
+
 class FDRSecurityManager(SupersetSecurityManager):
     def oauth_user_info(self, provider, response=None):
         """Extrait les infos utilisateur et rôles depuis le token Keycloak."""
         if provider == "keycloak":
             me = self.appbuilder.sm.oauth_remotes[provider].userinfo(token=response)
-            
+
             roles = me.get("realm_access", {}).get("roles", [])
-            
+
             return {
                 "username": me.get("preferred_username"),
                 "email": me.get("email"),
@@ -102,5 +105,6 @@ class FDRSecurityManager(SupersetSecurityManager):
                 "role_keys": roles,
             }
         return {}
+
 
 CUSTOM_SECURITY_MANAGER = FDRSecurityManager

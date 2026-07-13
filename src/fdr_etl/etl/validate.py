@@ -1,7 +1,8 @@
-import os
 import json
-import sqlite3
 import logging
+import os
+import sqlite3
+
 from frictionless import Resource, Schema
 
 logger = logging.getLogger(__name__)
@@ -12,16 +13,56 @@ SCHEMA_DIR = os.path.join(BASE_DIR, "schemas")
 PIPELINE_CONFIG = {
     "eau_potable — aep_canalisation": "canalisation",
     "aep_perimetre": "perimetre",
-    "eau_potable — aep_reparation": "reparation"
+    "eau_potable — aep_reparation": "reparation",
 }
 
 # Colonnes strictement nécessaires pour que transform.py fonctionne.
 # Leur absence ou un type invalide bloque le pipeline (niveaux 2 et 3 refusés).
 REQUIRED_COLUMNS_FOR_TRANSFORM = {
-    "eau_potable — aep_canalisation": ['fid', 'geom', 'type_reseau', 'fictif', 'etat_service', 'insee_commune', 'precision_xy', 'precision_z', 'an_pose_sup', 'an_pose_inf', 'an_abandon_sup', 'an_abandon_inf','materiau', 'diametre_equivalent', 'forme', 'id_aep_canalisation'],
-    "aep_perimetre": ['fid', 'geom', 'Id_perimetre', 'N° SIREN', "Nom de la collectivité de l'entité de gestion à laquelle la commune adhère", "Identifiant SISPEA de la collectivité de l'entité de gestion à laquelle la commune adhère", 'etat_service', 'type_perimetre_gestion'],
-    "eau_potable — aep_reparation": ['fid', 'geom', 'idReparation', 'supportIncident', 'dateIntervention', 'qualiteGeolocalisation', 'materiau', 'diametreNominal', 'datePose', 'emplacement', 'type', 'causeProbable'],
+    "eau_potable — aep_canalisation": [
+        "fid",
+        "geom",
+        "type_reseau",
+        "fictif",
+        "etat_service",
+        "insee_commune",
+        "precision_xy",
+        "precision_z",
+        "an_pose_sup",
+        "an_pose_inf",
+        "an_abandon_sup",
+        "an_abandon_inf",
+        "materiau",
+        "diametre_equivalent",
+        "forme",
+        "id_aep_canalisation",
+    ],
+    "aep_perimetre": [
+        "fid",
+        "geom",
+        "Id_perimetre",
+        "N° SIREN",
+        "Nom de la collectivité de l'entité de gestion à laquelle la commune adhère",
+        "Identifiant SISPEA de la collectivité de l'entité de gestion à laquelle la commune adhère",
+        "etat_service",
+        "type_perimetre_gestion",
+    ],
+    "eau_potable — aep_reparation": [
+        "fid",
+        "geom",
+        "idReparation",
+        "supportIncident",
+        "dateIntervention",
+        "qualiteGeolocalisation",
+        "materiau",
+        "diametreNominal",
+        "datePose",
+        "emplacement",
+        "type",
+        "causeProbable",
+    ],
 }
+
 
 def validate_file(filepath: str) -> dict:
     """
@@ -49,26 +90,32 @@ def validate_file(filepath: str) -> dict:
     results = {
         "valid": True,
         "level": 1,
-        "errors": [],       # erreurs bloquantes (colonnes requises)
-        "warnings": [],     # avertissements non-bloquants (colonnes optionnelles)
+        "errors": [],  # erreurs bloquantes (colonnes requises)
+        "warnings": [],  # avertissements non-bloquants (colonnes optionnelles)
         "columns_to_skip": {},
     }
 
     if not os.path.exists(filepath):
         results["valid"] = False
         results["level"] = None
-        results["errors"].append({
-            "table": "Système",
-            "message": "Fichier introuvable sur le serveur.",
-        })
+        results["errors"].append(
+            {
+                "table": "Système",
+                "message": "Fichier introuvable sur le serveur.",
+            }
+        )
         return results
 
     abs_gpkg_path = os.path.abspath(filepath)
 
     # Flags pour déterminer le niveau en fin de boucle
-    has_blocking_issues = False       # colonne requise absente ou invalide → rejection
-    has_missing_optional = False      # colonne optionnelle structurellement absente → niveau 3
-    has_invalid_optional = False      # colonne optionnelle présente mais type invalide → niveau 2
+    has_blocking_issues = False  # colonne requise absente ou invalide → rejection
+    has_missing_optional = (
+        False  # colonne optionnelle structurellement absente → niveau 3
+    )
+    has_invalid_optional = (
+        False  # colonne optionnelle présente mais type invalide → niveau 2
+    )
 
     for table_name, schema_file in PIPELINE_CONFIG.items():
         schema_path = os.path.join(SCHEMA_DIR, f"{schema_file}.json")
@@ -97,10 +144,12 @@ def validate_file(filepath: str) -> dict:
                 # Toutes les colonnes requises de cette table sont manquantes
                 has_blocking_issues = True
                 for col in required_cols:
-                    results["errors"].append({
-                        "table": table_name,
-                        "message": f"Table absente — colonne requise **{col}** introuvable.",
-                    })
+                    results["errors"].append(
+                        {
+                            "table": table_name,
+                            "message": f"Table absente — colonne requise **{col}** introuvable.",
+                        }
+                    )
                 continue
 
             # ── Colonnes réelles ─────────────────────────────────────────────
@@ -118,20 +167,26 @@ def validate_file(filepath: str) -> dict:
             if missing_required:
                 has_blocking_issues = True
                 for col in missing_required:
-                    results["errors"].append({
-                        "table": table_name,
-                        "message": f"Colonne requise **{col}** manquante dans la table.",
-                    })
+                    results["errors"].append(
+                        {
+                            "table": table_name,
+                            "message": f"Colonne requise **{col}** manquante dans la table.",
+                        }
+                    )
 
             # Colonnes optionnelles absentes → niveau 3
             if missing_optional:
                 has_missing_optional = True
                 for col in missing_optional:
-                    results["warnings"].append({
-                        "table": table_name,
-                        "message": f"Colonne optionnelle **{col}** absente (données partielles).",
-                    })
-                results["columns_to_skip"].setdefault(table_name, []).extend(missing_optional)
+                    results["warnings"].append(
+                        {
+                            "table": table_name,
+                            "message": f"Colonne optionnelle **{col}** absente (données partielles).",
+                        }
+                    )
+                results["columns_to_skip"].setdefault(table_name, []).extend(
+                    missing_optional
+                )
 
             # ── Validation du contenu (types / contraintes) ──────────────────
             available_cols = [c for c in target_columns if c in actual_columns]
@@ -140,13 +195,16 @@ def validate_file(filepath: str) -> dict:
 
             cols_query = ", ".join([f'"{c}"' for c in available_cols])
             conn = sqlite3.connect(abs_gpkg_path)
-            
+
             # CORRECTION : On garde le type natif (int, float, None) au lieu de tout forcer en str,
             # sinon frictionless valide des strings et ne lève jamais d'erreur pour le type 'int'.
             conn.row_factory = lambda cur, row: dict(
                 zip(
                     [col[0] for col in cur.description],
-                    [str(val) if isinstance(val, int) and val in [0, 1] else val for val in row],
+                    [
+                        str(val) if isinstance(val, int) and val in [0, 1] else val
+                        for val in row
+                    ],
                 )
             )
             cursor = conn.cursor()
@@ -160,7 +218,10 @@ def validate_file(filepath: str) -> dict:
             if not report.valid:
                 summary = {}
                 for error in report.tasks[0].errors:
-                    if hasattr(error, "code") and error.code in ["label-error", "missing-label"]:
+                    if hasattr(error, "code") and error.code in [
+                        "label-error",
+                        "missing-label",
+                    ]:
                         continue
                     field = getattr(error, "field_name", "Structure/Général")
                     val = getattr(error, "cell", "N/A")
@@ -192,41 +253,52 @@ def validate_file(filepath: str) -> dict:
                             )
                             if info["values"]:
                                 msg += f" (Exemples : {sample})"
-                            results["errors"].append({"table": table_name, "message": msg})
+                            results["errors"].append(
+                                {"table": table_name, "message": msg}
+                            )
                         else:
                             has_invalid_optional = True
-                            results["columns_to_skip"].setdefault(table_name, []).append(field)
+                            results["columns_to_skip"].setdefault(
+                                table_name, []
+                            ).append(field)
                             msg = (
                                 f"Champ optionnel **{field}** : {info['count']} erreur(s) "
                                 f"de type '{err_type}' — colonne exclue du chargement."
                             )
                             if info["values"]:
                                 msg += f" (Exemples : {sample})"
-                            results["warnings"].append({"table": table_name, "message": msg})
+                            results["warnings"].append(
+                                {"table": table_name, "message": msg}
+                            )
 
         except sqlite3.OperationalError as e:
             has_blocking_issues = True
-            results["errors"].append({
-                "table": table_name,
-                "message": f"Erreur de lecture SQL : {str(e)}",
-            })
+            results["errors"].append(
+                {
+                    "table": table_name,
+                    "message": f"Erreur de lecture SQL : {str(e)}",
+                }
+            )
         except Exception as e:
             has_blocking_issues = True
-            results["errors"].append({
-                "table": table_name,
-                "message": str(e) or "Erreur de traitement inconnue",
-            })
+            results["errors"].append(
+                {
+                    "table": table_name,
+                    "message": str(e) or "Erreur de traitement inconnue",
+                }
+            )
 
     # ── Détermination du niveau final ────────────────────────────────────────
     results["columns_to_skip"] = {
-        t: list(dict.fromkeys(cols))
-        for t, cols in results["columns_to_skip"].items()
+        t: list(dict.fromkeys(cols)) for t, cols in results["columns_to_skip"].items()
     }
 
     if has_blocking_issues:
         results["valid"] = False
         results["level"] = None
-        logger.warning("🚫 Validation échouée : colonnes requises absentes ou invalides.")
+        logger.warning(
+            "🚫 Validation échouée : colonnes requises absentes ou invalides."
+        )
     elif has_missing_optional or has_invalid_optional:
         # Des colonnes optionnelles sont soit absentes, soit invalides
         results["level"] = 2

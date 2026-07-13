@@ -24,7 +24,7 @@ def main():
 
     if args.command == "validate":
         resultat = validate_file(args.filepath)
-        
+
         # Test sur la clé spécifique "valid"
         if resultat["valid"]:
             logger.info("=> Succès: Le fichier est valide.")
