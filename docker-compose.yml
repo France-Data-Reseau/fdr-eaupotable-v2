@@ -1,8 +1,6 @@
 services:
   db:
     image: postgis/postgis:16-3.4
-    container_name: db
-    hostname: db
     command: ["postgres", "-c", "log_min_messages=error"]
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
@@ -45,8 +43,6 @@ services:
     depends_on:
       - db
       - redis
-      - keycloak
-    command: ["uvicorn", "fdr_etl.web.app:app", "--host", "0.0.0.0", "--port", "5000"]
     restart: unless-stopped
     networks:
       - fdr_network
@@ -69,34 +65,6 @@ services:
     command: ["celery", "-A", "fdr_etl.worker.app.celery_app", "worker", "--loglevel=info"]
     restart: unless-stopped
 
-  superset:
-    build:
-      context: .
-      dockerfile: Dockerfile.superset
-    container_name: superset
-    user: root
-    ports:
-      - "8088:8088"
-    environment:
-      - SUPERSET_CONFIG_PATH=/app/pythonpath/superset_config.py
-      - SUPERSET_FEATURE_EMBEDDED_DASHBOARD=true
-      - SUPERSET_SECRET_KEY=${SUPERSET_SECRET_KEY}
-      - SQLALCHEMY_DATABASE_URI=postgresql://postgres:postgres@db:5432/fdr_db
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/fdr_db
-      - KEYCLOAK_SUPERSET_INTERNAL_URL=${KEYCLOAK_SUPERSET_INTERNAL_URL}
-      - KEYCLOAK_SUPERSET_CLIENT_ID=${KEYCLOAK_SUPERSET_CLIENT_ID}
-      - KEYCLOAK_SUPERSET_SECRET=${KEYCLOAK_SUPERSET_SECRET}
-      - KEYCLOAK_REALM=${KEYCLOAK_REALM}
-      - KEYCLOAK_ISSUER=${KEYCLOAK_ISSUER}
-    depends_on:
-      - db
-    networks:
-      - fdr_network
-    volumes:
-      - superset_home:/app/superset_home
-      - ./superset_config.py:/app/pythonpath/superset_config.py
-    extra_hosts:
-      - "kc-host:host-gateway"
 
 networks:
   fdr_network:
@@ -105,4 +73,3 @@ networks:
 volumes:
   postgres_data:
   uploads_data:
-  superset_home:
