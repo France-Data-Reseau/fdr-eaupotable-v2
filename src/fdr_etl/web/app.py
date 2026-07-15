@@ -17,8 +17,6 @@ from fdr_etl.etl.load import extract_siren_from_gpkg
 from fdr_etl.worker.app import celery_app
 from fdr_etl.worker.tasks import run_integration_task, run_validation_task
 
-DASHBOARD_ID = "c1910792-88c6-4ede-b65d-997cdd4652a0"
-
 # ---------------------------------------------------------------------------
 # Authentification OIDC
 # ---------------------------------------------------------------------------
@@ -44,42 +42,6 @@ def secure_filename(filename: str) -> str:
     filename = re.sub(r"[^a-zA-Z0-9_.-]", "_", filename)
     filename = filename.strip("_.-")
     return filename if filename else "unnamed_file"
-
-
-def fetch_superset_guest_token(dashboard_id: str):
-    """
-    Logique métier pour obtenir le token via l'API de Superset.
-    Utilise un compte de service local Superset, indépendant de Keycloak.
-    """
-    superset_url = "http://superset:8088"
-
-    auth_payload = {
-        "username": Config.SUPERSET_SERVICE_USERNAME,
-        "password": Config.SUPERSET_SERVICE_PASSWORD,
-        "provider": "db",
-    }
-    auth_res = requests.post(f"{superset_url}/api/v1/security/login", json=auth_payload)
-    if auth_res.status_code != 200:
-        return None
-
-    token = auth_res.json()["access_token"]
-
-    headers = {"Authorization": f"Bearer {token}"}
-    guest_payload = {
-        "user": {
-            "username": "fdr_guest",
-            "first_name": "Jonathan",
-            "last_name": "Brans",
-        },
-        "resources": [{"type": "dashboard", "id": dashboard_id}],
-        "rls": [],
-    }
-    guest_res = requests.post(
-        f"{superset_url}/api/v1/security/guest_token/",
-        json=guest_payload,
-        headers=headers,
-    )
-    return guest_res.json().get("token")
 
 
 # ---------------------------------------------------------------------------
@@ -136,13 +98,6 @@ def create_app() -> FastAPI:
     # -----------------------------------------------------------------------
     # Routes protégées (Bearer JWT requis)
     # -----------------------------------------------------------------------
-
-    @app.get("/api/superset-guest-token")
-    async def get_token(current_user: IDToken = Depends(authenticate)):
-        token = fetch_superset_guest_token(DASHBOARD_ID)
-        if not token:
-            raise HTTPException(status_code=500, detail="Erreur Superset")
-        return {"token": token, "dashboard_id": DASHBOARD_ID}
 
     @app.post("/upload")
     async def upload_file(
