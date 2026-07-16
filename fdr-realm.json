@@ -4,43 +4,24 @@
   "accessTokenLifespan": 3600,
   "clients": [
     {
-      "clientId": "fdr-etl",
+      "clientId": "etl-eaupotable",
+      "protocol": "openid-connect",
       "enabled": true,
       "publicClient": true,
-      "redirectUris": ["http://localhost:8000/*"],
-      "webOrigins": ["http://localhost:8000"],
-      "implicitFlowEnabled": true,
-      "standardFlowEnabled": true,
-      "defaultClientScopes": [
-        "web-origins",
-        "profile",
-        "roles",
-        "email",
-        "acr",
-        "fdr-audience"
-      ],
-      "optionalClientScopes": []
-    },
-    {
-      "clientId": "fdr-superset",
-      "enabled": true,
-      "publicClient": false,
-      "secret": "superset-secret-change-in-prod",
-      "redirectUris": [
-        "http://localhost:8088/*",
-        "http://localhost:8088/oauth-authorized/keycloak"
-      ],
-      "webOrigins": ["http://localhost:8088"],
-      "standardFlowEnabled": true,
+      "redirectUris": ["http://keycloak.localhost:8000/", "http://keycloak.localhost:8000/*"],
+      "webOrigins": ["http://keycloak.localhost:8000"],
       "implicitFlowEnabled": false,
-      "directAccessGrantsEnabled": true,
-      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": true,
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
       "defaultClientScopes": [
         "web-origins",
         "profile",
         "roles",
         "email",
         "acr",
+        "groups",
         "fdr-audience"
       ],
       "optionalClientScopes": []
@@ -50,15 +31,21 @@
     {
       "name": "fdr-audience",
       "protocol": "openid-connect",
-      "attributes": {},
+      "attributes": {
+        "include.in.token.scope": "false",
+        "display.on.consent.screen": "false"
+      },
       "protocolMappers": [
         {
-          "name": "fdr-etl-audience",
+          "name": "etl-eaupotable-audience",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
           "config": {
-            "included.client.audience": "fdr-etl",
-            "access.token.claim": "true"
+            "included.client.audience": "etl-eaupotable",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
           }
         }
       ]
@@ -72,39 +59,11 @@
       },
       "protocolMappers": [
         {
-          "name": "username",
+          "name": "sub",
           "protocol": "openid-connect",
-          "protocolMapper": "oidc-usermodel-property-mapper",
+          "protocolMapper": "oidc-sub-mapper",
+          "consentRequired": false,
           "config": {
-            "user.attribute": "username",
-            "claim.name": "preferred_username",
-            "jsonType.label": "String",
-            "id.token.claim": "true",
-            "access.token.claim": "true",
-            "userinfo.token.claim": "true"
-          }
-        },
-        {
-          "name": "given name",
-          "protocol": "openid-connect",
-          "protocolMapper": "oidc-usermodel-property-mapper",
-          "config": {
-            "user.attribute": "firstName",
-            "claim.name": "given_name",
-            "jsonType.label": "String",
-            "id.token.claim": "true",
-            "access.token.claim": "true",
-            "userinfo.token.claim": "true"
-          }
-        },
-        {
-          "name": "family name",
-          "protocol": "openid-connect",
-          "protocolMapper": "oidc-usermodel-property-mapper",
-          "config": {
-            "user.attribute": "lastName",
-            "claim.name": "family_name",
-            "jsonType.label": "String",
             "id.token.claim": "true",
             "access.token.claim": "true",
             "userinfo.token.claim": "true"
@@ -124,6 +83,7 @@
           "name": "email",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
           "config": {
             "user.attribute": "email",
             "claim.name": "email",
@@ -136,74 +96,54 @@
       ]
     },
     {
-      "name": "roles",
+      "name": "groups",
       "protocol": "openid-connect",
       "attributes": {
-        "include.in.token.scope": "false",
+        "include.in.token.scope": "true",
         "display.on.consent.screen": "true"
       },
       "protocolMappers": [
         {
-          "name": "realm roles",
+          "name": "groups",
           "protocol": "openid-connect",
-          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "consentRequired": false,
           "config": {
-            "claim.name": "realm_access.roles",
-            "jsonType.label": "String",
-            "multivalued": "true",
+            "full.path": "false",
             "id.token.claim": "true",
             "access.token.claim": "true",
+            "claim.name": "groups",
             "userinfo.token.claim": "true"
           }
         }
       ]
-    },
-    {
-      "name": "web-origins",
-      "protocol": "openid-connect",
-      "attributes": {
-        "include.in.token.scope": "false",
-        "display.on.consent.screen": "false"
-      },
-      "protocolMappers": [
-        {
-          "name": "allowed web origins",
-          "protocol": "openid-connect",
-          "protocolMapper": "oidc-allowed-origins-mapper",
-          "config": {}
-        }
-      ]
-    },
-    {
-      "name": "acr",
-      "protocol": "openid-connect",
-      "attributes": {
-        "include.in.token.scope": "false",
-        "display.on.consent.screen": "false"
-      },
-      "protocolMappers": []
     }
   ],
   "roles": {
     "realm": [
-      { "name": "fdr_user" },
-      { "name": "fdr_admin" }
+      { "name": "etl-eaupotable" }
     ]
   },
+  "groups": [
+    {
+      "name": "etl-eaupotable"
+    }
+  ],
   "users": [
     {
       "username": "testuser",
+      "firstName": "Test",
+      "lastName": "User",
       "email": "test@collectivite.fr",
+      "emailVerified": true,
       "enabled": true,
       "credentials": [{ "type": "password", "value": "test123", "temporary": false }],
-      "realmRoles": ["fdr_user"]
-    },
-    {
-      "username": "testadmin",
-      "email": "admin@collectivite.fr",
-      "enabled": true,
-      "credentials": [{ "type": "password", "value": "admin123", "temporary": false }],
-      "realmRoles": ["fdr_user", "fdr_admin"]
+      "requiredActions": [],
+      "groups": ["/etl-eaupotable"],
+      "realmRoles": ["etl-eaupotable"],
+      "clientRoles": {
+        "realm-management": ["realm-admin"]
+      }
     }
   ]
 }

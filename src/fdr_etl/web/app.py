@@ -1,9 +1,9 @@
+import logging
 import os
 import re
 import uuid
 
 import psycopg
-import requests
 from celery.result import AsyncResult
 from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import JSONResponse
@@ -13,6 +13,7 @@ from fastapi_oidc import IDToken, get_auth
 from psycopg.rows import dict_row
 
 from fdr_etl.core.config import Config
+from fdr_etl.core.logging import setup_logging
 from fdr_etl.etl.load import extract_siren_from_gpkg
 from fdr_etl.worker.app import celery_app
 from fdr_etl.worker.tasks import run_integration_task, run_validation_task
@@ -21,12 +22,15 @@ from fdr_etl.worker.tasks import run_integration_task, run_validation_task
 # Authentification OIDC
 # ---------------------------------------------------------------------------
 
+setup_logging()
+logger = logging.getLogger(__name__)
+
 authenticate = get_auth(
-    base_authorization_server_uri=f"{Config.KEYCLOAK_URL}/realms/{Config.KEYCLOAK_REALM}",
-    issuer=f"{Config.KEYCLOAK_ISSUER}/realms/{Config.KEYCLOAK_REALM}",
-    client_id=Config.KEYCLOAK_CLIENT_ID,
-    signature_cache_ttl=3600,
-    audience=Config.KEYCLOAK_CLIENT_ID,
+    base_authorization_server_uri=Config.OIDC_ISSUER_URL,
+    issuer=Config.OIDC_ISSUER_URL,
+    client_id=Config.OIDC_CLIENT_ID,
+    signature_cache_ttl=Config.OIDC_CACHE_TTL,
+    audience=Config.OIDC_AUDIENCE,
 )
 
 # ---------------------------------------------------------------------------
@@ -42,6 +46,13 @@ def secure_filename(filename: str) -> str:
     filename = re.sub(r"[^a-zA-Z0-9_.-]", "_", filename)
     filename = filename.strip("_.-")
     return filename if filename else "unnamed_file"
+
+
+def token_claim(token: IDToken, key: str, default=None):
+    """Safely retrieve a claim from IDToken whether dict-like or object-like."""
+    if isinstance(token, dict):
+        return token.get(key, default)
+    return getattr(token, key, default)
 
 
 # ---------------------------------------------------------------------------
@@ -61,9 +72,12 @@ def create_app() -> FastAPI:
     current_dir = os.path.dirname(os.path.abspath(__file__))
     root_dir = os.path.dirname(current_dir)
     schemas_dir = os.path.join(root_dir, "schemas")
+    static_dir = os.path.join(base_dir, "static")
 
     if os.path.exists(schemas_dir):
         app.mount("/schemas", StaticFiles(directory=schemas_dir), name="schemas")
+    if os.path.exists(static_dir):
+        app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
     # -----------------------------------------------------------------------
     # Routes publiques (pas de token requis)
@@ -75,9 +89,9 @@ def create_app() -> FastAPI:
             request=request,
             name="index.html",
             context={
-                "keycloak_issuer": Config.KEYCLOAK_ISSUER,
-                "keycloak_realm": Config.KEYCLOAK_REALM,
-                "keycloak_client_id": Config.KEYCLOAK_CLIENT_ID,
+                "oidc_issuer_url": Config.OIDC_ISSUER_URL,
+                "oidc_client_id": Config.OIDC_CLIENT_ID,
+                "oidc_base_uri": Config.OIDC_BASE_URI,
             },
         )
 
@@ -104,7 +118,16 @@ def create_app() -> FastAPI:
         file: UploadFile = File(...),
         current_user: IDToken = Depends(authenticate),
     ):
+        logger.debug(
+            "Upload auth context user_sub=%s azp=%s aud=%s groups=%s filename=%s",
+            token_claim(current_user, "sub"),
+            token_claim(current_user, "azp"),
+            token_claim(current_user, "aud"),
+            token_claim(current_user, "groups"),
+            file.filename,
+        )
         if not file.filename:
+            logger.warning("Upload rejected: missing filename")
             return JSONResponse({"error": "No selected file"}, status_code=400)
 
         import_id = str(uuid.uuid4())

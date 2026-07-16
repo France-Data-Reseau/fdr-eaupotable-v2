@@ -1,8 +1,12 @@
 services:
   web:
+    environment:
+      - LOG_LEVEL=DEBUG
     volumes:
       - ./src:/app/src
-    command: [ "uvicorn", "src.fdr_etl.web.app:app", "--host", "0.0.0.0", "--port", "5000", "--reload", --no-access-log]
+    command: ["uvicorn", "src.fdr_etl.web.app:app", "--host", "0.0.0.0", "--port", "5000", "--reload", "--log-level", "debug", "--access-log"]
+    extra_hosts:
+      - "keycloak.localhost:host-gateway"
 
   worker:
     volumes:
@@ -35,14 +39,13 @@ services:
     extra_hosts:
       - "kc-host:host-gateway"
   keycloak:
-    image: keycloak/keycloak:24.0
+    image: keycloak/keycloak:latest
     command: start-dev --import-realm
     environment:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
       KC_DB: dev-file
-      KC_HOSTNAME: localhost
-      KC_HOSTNAME_PORT: 8080
+      KC_HOSTNAME: http://keycloak.localhost:8080
       KC_HOSTNAME_STRICT_BACKCHANNEL: "false"
     ports:
       - "8080:8080"

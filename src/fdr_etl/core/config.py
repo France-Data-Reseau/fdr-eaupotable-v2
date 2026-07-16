@@ -12,12 +12,9 @@ class Config:
     CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", REDIS_URL)
     CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", REDIS_URL)
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key")
-    # Keycloak OIDC
-    KEYCLOAK_URL = os.getenv("KEYCLOAK_URL", "http://keycloak:8080")
-    KEYCLOAK_ISSUER = os.getenv("KEYCLOAK_ISSUER", "http://localhost:8080")
-    KEYCLOAK_REALM = os.getenv("KEYCLOAK_REALM", "fdr")
-    KEYCLOAK_CLIENT_ID = os.getenv("KEYCLOAK_CLIENT_ID", "fdr-etl")
-    # Superset
-    SUPERSET_INTERNAL_URL = os.getenv("SUPERSET_INTERNAL_URL", "http://superset:8088")
-    SUPERSET_SERVICE_USERNAME = os.getenv("SUPERSET_SERVICE_USERNAME", "svc_fdr_api")
-    SUPERSET_SERVICE_PASSWORD = os.getenv("SUPERSET_SERVICE_PASSWORD", "")
+    # OIDC
+    OIDC_ISSUER_URL = os.getenv("OIDC_ISSUER_URL")
+    OIDC_CLIENT_ID = os.getenv("OIDC_CLIENT_ID", "fdr-etl")
+    OIDC_BASE_URI = os.getenv("OIDC_BASE_URI", "")
+    OIDC_AUDIENCE = os.getenv("OIDC_AUDIENCE", "fnccr")
+    OIDC_CACHE_TTL = int(os.getenv("OIDC_CACHE_TTL", "3600"))
