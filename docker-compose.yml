@@ -15,7 +15,7 @@ services:
       - fdr_network
 
   redis:
-    image: redis:alpine
+    image: redis:8.6-alpine
     ports:
       - "6379:6379"
     restart: unless-stopped
@@ -23,7 +23,7 @@ services:
       - fdr_network
 
   web:
-    build: .
+    image: ghcr.io/france-data-reseau/fdr-eaupotable-v2:${FDR_APP_TAG:-1.0.0}
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=${REDIS_URL}
@@ -46,7 +46,7 @@ services:
       - fdr_network
 
   worker:
-    build: .
+    image: ghcr.io/france-data-reseau/fdr-eaupotable-v2:${FDR_APP_TAG:-1.0.0}
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=${REDIS_URL}

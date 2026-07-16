@@ -1,5 +1,6 @@
 services:
   web:
+    build: .
     environment:
       - LOG_LEVEL=DEBUG
     volumes:
@@ -9,6 +10,7 @@ services:
       - "keycloak.localhost:host-gateway"
 
   worker:
+    build: .
     volumes:
       - ./src:/app/src
   superset:
@@ -39,7 +41,7 @@ services:
     extra_hosts:
       - "kc-host:host-gateway"
   keycloak:
-    image: keycloak/keycloak:latest
+    image: keycloak/keycloak:26.0.7
     command: start-dev --import-realm
     environment:
       KEYCLOAK_ADMIN: admin
