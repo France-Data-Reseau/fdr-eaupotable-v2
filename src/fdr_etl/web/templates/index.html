@@ -170,22 +170,6 @@
         }
         @keyframes spin { 100% { transform: rotate(360deg); } }
 
-        #superset-container {
-            display: none;
-            max-width: 1250px;
-            margin: 30px auto;
-            background: var(--card);
-            border-radius: 12px;
-            border: 1px solid var(--border);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            height: 800px;
-            overflow: hidden;
-        }
-        #superset-container iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
-        }
         .template-download-container {
             margin-bottom: 30px;
             display: flex;
@@ -220,7 +204,6 @@
             flex-shrink: 0;
         }
     </style>
-    <script src="https://unpkg.com/@superset-ui/embedded-sdk"></script>
 </head>
 <body>
 
@@ -265,82 +248,14 @@
 
     <div id="map" style="height: 600px; width: 100%; display: none;"></div>
 
-    <div id="superset-container"></div>
-
-    <!-- ────────────────────────────────────────────────────────
-         AUTHENTIFICATION OIDC 
-    ──────────────────────────────────────────────────────────── -->
     <script>
-        // ── Configuration Keycloak ───────────────────────────
-        const KEYCLOAK_URL = "{{ keycloak_issuer }}";
-        const REALM        = "{{ keycloak_realm }}";
-        const CLIENT_ID    = "{{ keycloak_client_id }}";
-        const REDIRECT_URI = encodeURIComponent(window.location.origin + "/");
-
-        // ── Stockage du token ────────────────────────────────
-        function saveToken(token, expiresIn) {
-            localStorage.setItem("fdr_token", token);
-            localStorage.setItem("fdr_token_expiry", Date.now() + expiresIn * 1000);
-        }
-
-        function getToken() {
-            const token  = localStorage.getItem("fdr_token");
-            const expiry = localStorage.getItem("fdr_token_expiry");
-            if (token && expiry && Date.now() < parseInt(expiry)) return token;
-            localStorage.removeItem("fdr_token");
-            localStorage.removeItem("fdr_token_expiry");
-            return null;
-        }
-
-        // ── Redirection vers Keycloak ────────────────────────
-        function redirectToLogin() {
-            window.location.href =
-                `${KEYCLOAK_URL}/realms/${REALM}/protocol/openid-connect/auth`
-                + `?client_id=${CLIENT_ID}`
-                + `&redirect_uri=${REDIRECT_URI}`
-                + `&response_type=token`
-                + `&scope=openid`;
-        }
-
-        // ── Retour depuis Keycloak (token dans le hash URL) ──
-        function handleCallback() {
-            const params    = new URLSearchParams(window.location.hash.substring(1));
-            const token     = params.get("access_token");
-            const expiresIn = params.get("expires_in");
-            if (token) {
-                saveToken(token, parseInt(expiresIn));
-                window.history.replaceState({}, document.title, "/");
-                return true;
-            }
-            return false;
-        }
-
-        // ── Injection automatique du token dans tous les fetch ──
-        const _fetch = window.fetch;
-        window.fetch = function(url, options = {}) {
-            const token = getToken();
-            if (token && typeof url === "string" && url.startsWith("/")) {
-                options.headers = { ...options.headers, "Authorization": `Bearer ${token}` };
-            }
-            return _fetch(url, options).then(response => {
-                console.log(`[fetch] ${url} → ${response.status}`);
-                if (response.status === 401) {
-                    console.log("[fetch] Token:", token ? token.substring(0, 50) + "..." : "NULL");
-                    setTimeout(redirectToLogin, 2000); // DEBUG
-                }
-                return response;
-            });
+        window.OIDC_CONFIG = {
+            issuerUrl: {{ oidc_issuer_url|tojson }},
+            clientId: {{ oidc_client_id|tojson }},
+            baseUri: {{ oidc_base_uri|tojson }}
         };
-
-        // ── Point d'entrée ───────────────────────────────────
-        (function init() {
-            const justLoggedIn = handleCallback();
-            if (!justLoggedIn && !getToken()) {
-                redirectToLogin();
-            }
-            // Si on a un token, la page continue à charger normalement
-        })();
     </script>
+    <script src="/static/oidc.js"></script>
 
 
     <script>
@@ -354,7 +269,6 @@
         const dropZone = document.querySelector('.drop-zone');
         const exportBtn = document.getElementById('exportBtn');
         const logContainer = document.getElementById('validation-log-container');
-        const supersetDiv = document.getElementById('superset-container');
 
         let selectedFile = null;
         let lastValidationErrors = [];
@@ -396,7 +310,6 @@
             logContainer.style.display = 'none';
             logContainer.innerHTML = '';
             exportBtn.style.display = 'none';
-            supersetDiv.style.display = 'none';
             loadDataBtn.style.display = 'none';
             statusContainer.classList.remove('status-success', 'status-warning', 'status-error');
             statusContainer.style.display = 'block';
@@ -553,7 +466,6 @@
 
                     setTimeout(() => {
                         loadMap(validatedImportId);
-                        loadSupersetDashboard();
                     }, 500);
                 } else if (data.status === "FAILURE") {
                     clearInterval(interval);
@@ -732,20 +644,6 @@
             }
         });
 
-        async function loadSupersetDashboard() {
-            supersetDiv.style.display = 'block';
-            try {
-                const response = await fetch("/api/superset-guest-token");
-                const data = await response.json();
-                supersetEmbeddedSdk.embedDashboard({
-                    id: data.dashboard_id,
-                    supersetDomain: "http://localhost:8088",
-                    mountPoint: supersetDiv,
-                    fetchGuestToken: () => data.token,
-                    dashboardUiConfig: { hideTitle: true, hideChartControls: false, filters: { visible: true, expanded: false } },
-                });
-            } catch (err) { console.error("Erreur Superset:", err); }
-        }
 
         // ── Carte Leaflet ────────────────────────────────────────────────────
         let map = null;

@@ -1,15 +1,14 @@
 import logging
+import time
 import uuid
+
 import pandas as pd
 import psycopg
-import time
 from sqlalchemy import create_engine, text
 
-from fdr_etl.etl.sql_queries import get_transformation_queries
-from fdr_etl.etl.stats_engine import execute_statistical_pipeline
-from fdr_etl.etl.bootstrap import compute_weighted_bootstrap
-from fdr_etl.etl.sql_queries import get_geom_cast_query
 from fdr_etl.etl.besoin_renouvellement import run_renewal_pipeline
+from fdr_etl.etl.sql_queries import get_geom_cast_query, get_transformation_queries
+from fdr_etl.etl.stats_engine import execute_statistical_pipeline
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +29,9 @@ def get_observation_period(engine, import_id_str: str = None) -> float:
                       AND "dateIntervention" != ''
                       AND file_id = :import_id
                 """)
-                res = connection.execute(query_period, {"import_id": import_id_str}).fetchone()
+                res = connection.execute(
+                    query_period, {"import_id": import_id_str}
+                ).fetchone()
             else:
                 # Stats globales : on exclut les imports de niveau 3
                 query_period = text("""
@@ -65,20 +66,38 @@ def run_transformations(db_url: str, import_id: str):
         # =========================================================
         with psycopg.connect(db_url) as conn:
             with conn.cursor() as cur:
-                logger.info("🔧 [Structure] Initialisation de l'extension et des colonnes...")
+                logger.info(
+                    "🔧 [Structure] Initialisation de l'extension et des colonnes..."
+                )
                 cur.execute("CREATE EXTENSION IF NOT EXISTS postgis;")
 
-                cur.execute("ALTER TABLE aep_canalisation ADD COLUMN IF NOT EXISTS date_pose INTEGER;")
-                cur.execute("ALTER TABLE aep_canalisation ADD COLUMN IF NOT EXISTS diametre_num INTEGER;")
-                cur.execute("ALTER TABLE aep_canalisation DROP COLUMN IF EXISTS dia_ens;")
+                cur.execute(
+                    "ALTER TABLE aep_canalisation ADD COLUMN IF NOT EXISTS date_pose INTEGER;"
+                )
+                cur.execute(
+                    "ALTER TABLE aep_canalisation ADD COLUMN IF NOT EXISTS diametre_num INTEGER;"
+                )
+                cur.execute(
+                    "ALTER TABLE aep_canalisation DROP COLUMN IF EXISTS dia_ens;"
+                )
                 cur.execute("ALTER TABLE aep_canalisation ADD COLUMN dia_ens TEXT;")
-                cur.execute("ALTER TABLE aep_canalisation DROP COLUMN IF EXISTS ddp_ens;")
+                cur.execute(
+                    "ALTER TABLE aep_canalisation DROP COLUMN IF EXISTS ddp_ens;"
+                )
                 cur.execute("ALTER TABLE aep_canalisation ADD COLUMN ddp_ens TEXT;")
-                cur.execute("ALTER TABLE aep_reparation ADD COLUMN IF NOT EXISTS supportincident_auto TEXT;")
+                cur.execute(
+                    "ALTER TABLE aep_reparation ADD COLUMN IF NOT EXISTS supportincident_auto TEXT;"
+                )
 
-                logger.info("⚡ [Index] Création des index B-Tree sur file_id (TEXT)...")
-                cur.execute("CREATE INDEX IF NOT EXISTS idx_aep_canalisation_file_id ON aep_canalisation (file_id);")
-                cur.execute("CREATE INDEX IF NOT EXISTS idx_aep_reparation_file_id ON aep_reparation (file_id);")
+                logger.info(
+                    "⚡ [Index] Création des index B-Tree sur file_id (TEXT)..."
+                )
+                cur.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_aep_canalisation_file_id ON aep_canalisation (file_id);"
+                )
+                cur.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_aep_reparation_file_id ON aep_reparation (file_id);"
+                )
                 conn.commit()
 
         # =========================================================
@@ -87,19 +106,25 @@ def run_transformations(db_url: str, import_id: str):
         with psycopg.connect(db_url) as conn:
             with conn.cursor() as cur:
                 logger.info("📐 [Géom] Cast et projection des géométries...")
-                for table, geom_type in [("aep_canalisation", "LineString"), ("aep_reparation", "Point")]:
+                for table, geom_type in [
+                    ("aep_canalisation", "LineString"),
+                    ("aep_reparation", "Point"),
+                ]:
                     for stmt in get_geom_cast_query(table, geom_type, import_id_str):
                         cur.execute(stmt)
                 conn.commit()
 
                 # Rapport de quarantaine
-                cur.execute("""
+                cur.execute(
+                    """
                     SELECT table_name, COUNT(*), reason
                     FROM geom_quarantine
                     WHERE file_id = %s
                     GROUP BY table_name, reason
                     ORDER BY table_name;
-                """, [import_id_str])
+                """,
+                    [import_id_str],
+                )
                 quarantine_rows = cur.fetchall()
                 if quarantine_rows:
                     for tbl, cnt, reason in quarantine_rows:
@@ -112,26 +137,40 @@ def run_transformations(db_url: str, import_id: str):
         with psycopg.connect(db_url) as conn:
             with conn.cursor() as cur:
                 logger.info("⚡ [Index] Régénération des index spatiaux GIST...")
-                cur.execute("CREATE INDEX IF NOT EXISTS idx_cana_geom ON aep_canalisation USING GIST(geom);")
-                cur.execute("CREATE INDEX IF NOT EXISTS idx_rep_geom ON aep_reparation USING GIST(geom);")
+                cur.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_cana_geom ON aep_canalisation USING GIST(geom);"
+                )
+                cur.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_rep_geom ON aep_reparation USING GIST(geom);"
+                )
                 conn.commit()
         # =========================================================
         # EXÉCUTION DES TRANSFORMATIONS DE DONNÉES
         # =========================================================
         with psycopg.connect(db_url) as conn:
             with conn.cursor() as cur:
-                logger.info("🚀 Lancement des transformations SQL (Nettoyage, Regex, Jointures)...")
+                logger.info(
+                    "🚀 Lancement des transformations SQL (Nettoyage, Regex, Jointures)..."
+                )
                 queries = get_transformation_queries(import_id_str)
                 for desc, q in queries.items():
                     logger.info(f"⏳ {desc}...")
                     cur.execute(q)
 
-                logger.info("⚡ [Index] Création de l'index sur la nouvelle colonne de liaison...")
-                cur.execute("CREATE INDEX IF NOT EXISTS idx_rep_support_auto ON aep_reparation(supportincident_auto);")
+                logger.info(
+                    "⚡ [Index] Création de l'index sur la nouvelle colonne de liaison..."
+                )
+                cur.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_rep_support_auto ON aep_reparation(supportincident_auto);"
+                )
                 conn.commit()
 
         # Préparation Engine SQLAlchemy
-        engine_url = db_url.replace("postgresql://", "postgresql+psycopg://", 1) if db_url.startswith("postgresql://") else db_url
+        engine_url = (
+            db_url.replace("postgresql://", "postgresql+psycopg://", 1)
+            if db_url.startswith("postgresql://")
+            else db_url
+        )
         engine = create_engine(engine_url)
 
         # Récupération du niveau de permissivité de cet import
@@ -139,7 +178,9 @@ def run_transformations(db_url: str, import_id: str):
         try:
             with engine.connect() as connection:
                 res = connection.execute(
-                    text("SELECT permissivity_level FROM imports_metadata WHERE file_id = :fid"),
+                    text(
+                        "SELECT permissivity_level FROM imports_metadata WHERE file_id = :fid"
+                    ),
                     {"fid": import_id_uuid},
                 ).fetchone()
                 if res and res[0] is not None:
@@ -162,7 +203,9 @@ def run_transformations(db_url: str, import_id: str):
                     FROM aep_perimetre
                     WHERE file_id::text = :import_id LIMIT 1
                 """)
-                result = connection.execute(query_nom, {"import_id": import_id_str}).fetchone()
+                result = connection.execute(
+                    query_nom, {"import_id": import_id_str}
+                ).fetchone()
                 if result and result[0]:
                     nom_coll = str(result[0])
         except Exception:
@@ -201,29 +244,49 @@ def run_transformations(db_url: str, import_id: str):
         logger.info(f"[{nom_coll}] Début du téléchargement SQL...")
 
         chunks = []
-        for chunk in pd.read_sql(query_indiv, engine, params={"import_id": import_id_str}, chunksize=25000):
+        for chunk in pd.read_sql(
+            query_indiv, engine, params={"import_id": import_id_str}, chunksize=25000
+        ):
             chunks.append(chunk)
 
         df_raw_indiv = pd.concat(chunks, ignore_index=True)
-        logger.info(f"[{nom_coll}] Extraction SQL de {len(df_raw_indiv)} lignes réussie en {time.time() - start_load:.3f}s")
+        logger.info(
+            f"[{nom_coll}] Extraction SQL de {len(df_raw_indiv)} lignes réussie en {time.time() - start_load:.3f}s"
+        )
 
-        df_patrimoine_indiv, df_croise_indiv, metadata_indiv = execute_statistical_pipeline(df_raw_indiv, nom_coll, nb_annees_indiv)
+        df_patrimoine_indiv, df_croise_indiv, metadata_indiv = (
+            execute_statistical_pipeline(df_raw_indiv, nom_coll, nb_annees_indiv)
+        )
 
         # =========================================================
         # INJECTION DES DONNÉES DU FICHIER ENTRANT
         # =========================================================
-        logger.info("💾 Écriture des statistiques individuelles et des données croisées...")
+        logger.info(
+            "💾 Écriture des statistiques individuelles et des données croisées..."
+        )
         with psycopg.connect(db_url) as conn:
             with conn.cursor() as cur:
+                cur.execute(
+                    "ALTER TABLE imports_metadata ADD COLUMN IF NOT EXISTS lineaire_total FLOAT;"
+                )
+                cur.execute(
+                    "ALTER TABLE imports_metadata ADD COLUMN IF NOT EXISTS periode_obs FLOAT;"
+                )
+                cur.execute(
+                    "ALTER TABLE imports_metadata ADD COLUMN IF NOT EXISTS age_moyen FLOAT;"
+                )
+                cur.execute(
+                    "ALTER TABLE imports_metadata ADD COLUMN IF NOT EXISTS taux_global FLOAT;"
+                )
+                cur.execute(
+                    "ALTER TABLE imports_metadata ADD COLUMN IF NOT EXISTS taux_renouv FLOAT;"
+                )
+                cur.execute(
+                    "ALTER TABLE imports_metadata ADD COLUMN IF NOT EXISTS mat_dominant TEXT;"
+                )
 
-                cur.execute("ALTER TABLE imports_metadata ADD COLUMN IF NOT EXISTS lineaire_total FLOAT;")
-                cur.execute("ALTER TABLE imports_metadata ADD COLUMN IF NOT EXISTS periode_obs FLOAT;")
-                cur.execute("ALTER TABLE imports_metadata ADD COLUMN IF NOT EXISTS age_moyen FLOAT;")
-                cur.execute("ALTER TABLE imports_metadata ADD COLUMN IF NOT EXISTS taux_global FLOAT;")
-                cur.execute("ALTER TABLE imports_metadata ADD COLUMN IF NOT EXISTS taux_renouv FLOAT;")
-                cur.execute("ALTER TABLE imports_metadata ADD COLUMN IF NOT EXISTS mat_dominant TEXT;")
-
-                cur.execute("""
+                cur.execute(
+                    """
                     UPDATE imports_metadata
                     SET lineaire_total = %s,
                         periode_obs = %s,
@@ -232,15 +295,17 @@ def run_transformations(db_url: str, import_id: str):
                         taux_renouv = %s,
                         mat_dominant = %s
                     WHERE file_id = %s;
-                """, (
-                    metadata_indiv['lineaire_total'],
-                    metadata_indiv['periode_obs'],
-                    metadata_indiv['age_moyen'],
-                    metadata_indiv['taux_global'],
-                    metadata_indiv['taux_renouv'],
-                    metadata_indiv['mat_dominant'],
-                    import_id_uuid,
-                ))
+                """,
+                    (
+                        metadata_indiv["lineaire_total"],
+                        metadata_indiv["periode_obs"],
+                        metadata_indiv["age_moyen"],
+                        metadata_indiv["taux_global"],
+                        metadata_indiv["taux_renouv"],
+                        metadata_indiv["mat_dominant"],
+                        import_id_uuid,
+                    ),
+                )
 
                 cur.execute("""
                     CREATE TABLE IF NOT EXISTS stats_patrimoine (
@@ -254,26 +319,48 @@ def run_transformations(db_url: str, import_id: str):
                     );
                 """)
 
-                cur.execute("DELETE FROM stats_patrimoine WHERE file_id = %s AND scope = 'INDIVIDUAL';", [import_id_uuid])
-                cur.execute("DELETE FROM stats_croisees WHERE file_id = %s;", [import_id_uuid])
+                cur.execute(
+                    "DELETE FROM stats_patrimoine WHERE file_id = %s AND scope = 'INDIVIDUAL';",
+                    [import_id_uuid],
+                )
+                cur.execute(
+                    "DELETE FROM stats_croisees WHERE file_id = %s;", [import_id_uuid]
+                )
 
-                with cur.copy("COPY stats_croisees (materiau, dia_ens, ddp_ens, km, nb_casses, file_id) FROM STDIN") as copy:
+                with cur.copy(
+                    "COPY stats_croisees (materiau, dia_ens, ddp_ens, km, nb_casses, file_id) FROM STDIN"
+                ) as copy:
                     for _, row in df_croise_indiv.iterrows():
-                        copy.write_row((row.materiau, row.dia_ens, row.ddp_ens, row.longueur_km, int(row.nb_casses), import_id_uuid))
+                        copy.write_row(
+                            (
+                                row.materiau,
+                                row.dia_ens,
+                                row.ddp_ens,
+                                row.longueur_km,
+                                int(row.nb_casses),
+                                import_id_uuid,
+                            )
+                        )
 
-                with cur.copy("COPY stats_patrimoine (analyse_type, categorie, km, nom_collectivite, taux_moyen, ic_inf, ic_sup, scope, file_id) FROM STDIN") as copy:
+                with cur.copy(
+                    "COPY stats_patrimoine (analyse_type, categorie, km, nom_collectivite, taux_moyen, ic_inf, ic_sup, scope, file_id) FROM STDIN"
+                ) as copy:
                     for _, row in df_patrimoine_indiv.iterrows():
-                        copy.write_row((
-                            row.analyse_type,
-                            row.categorie,
-                            float(row.km) if pd.notna(row.km) else 0.0,
-                            row.nom_collectivite,
-                            float(row.taux_moyen) if pd.notna(row.taux_moyen) else 0.0,
-                            float(row.ic_inf) if pd.notna(row.ic_inf) else 0.0,
-                            float(row.ic_sup) if pd.notna(row.ic_sup) else 0.0,
-                            'INDIVIDUAL',
-                            import_id_uuid,
-                        ))
+                        copy.write_row(
+                            (
+                                row.analyse_type,
+                                row.categorie,
+                                float(row.km) if pd.notna(row.km) else 0.0,
+                                row.nom_collectivite,
+                                float(row.taux_moyen)
+                                if pd.notna(row.taux_moyen)
+                                else 0.0,
+                                float(row.ic_inf) if pd.notna(row.ic_inf) else 0.0,
+                                float(row.ic_sup) if pd.notna(row.ic_sup) else 0.0,
+                                "INDIVIDUAL",
+                                import_id_uuid,
+                            )
+                        )
                 conn.commit()
                 logger.info("🎯 Statistiques individuelles mises à jour avec succès !")
 
@@ -281,7 +368,9 @@ def run_transformations(db_url: str, import_id: str):
         # STATISTIQUES GLOBALES (niveaux 1 et 2 uniquement)
         # =========================================================
         if eligible_global:
-            logger.info(f"🌍 [{nom_coll}] Calcul des statistiques globales (niveaux 1 & 2)...")
+            logger.info(
+                f"🌍 [{nom_coll}] Calcul des statistiques globales (niveaux 1 & 2)..."
+            )
 
             nb_annees_global = get_observation_period(engine)
             logger.info(f"📅 Période GLOBALE : {nb_annees_global:.1f} ans")
@@ -337,22 +426,32 @@ def run_transformations(db_url: str, import_id: str):
 
                 with psycopg.connect(db_url) as conn:
                     with conn.cursor() as cur:
-                        cur.execute("DELETE FROM stats_patrimoine WHERE scope = 'GLOBAL';")
+                        cur.execute(
+                            "DELETE FROM stats_patrimoine WHERE scope = 'GLOBAL';"
+                        )
                         with cur.copy(
                             "COPY stats_patrimoine (analyse_type, categorie, km, nom_collectivite, taux_moyen, ic_inf, ic_sup, scope, file_id) FROM STDIN"
                         ) as copy:
                             for _, row in df_patrimoine_global.iterrows():
-                                copy.write_row((
-                                    row.analyse_type,
-                                    row.categorie,
-                                    float(row.km) if pd.notna(row.km) else 0.0,
-                                    row.nom_collectivite,
-                                    float(row.taux_moyen) if pd.notna(row.taux_moyen) else 0.0,
-                                    float(row.ic_inf) if pd.notna(row.ic_inf) else 0.0,
-                                    float(row.ic_sup) if pd.notna(row.ic_sup) else 0.0,
-                                    'GLOBAL',
-                                    import_id_uuid,
-                                ))
+                                copy.write_row(
+                                    (
+                                        row.analyse_type,
+                                        row.categorie,
+                                        float(row.km) if pd.notna(row.km) else 0.0,
+                                        row.nom_collectivite,
+                                        float(row.taux_moyen)
+                                        if pd.notna(row.taux_moyen)
+                                        else 0.0,
+                                        float(row.ic_inf)
+                                        if pd.notna(row.ic_inf)
+                                        else 0.0,
+                                        float(row.ic_sup)
+                                        if pd.notna(row.ic_sup)
+                                        else 0.0,
+                                        "GLOBAL",
+                                        import_id_uuid,
+                                    )
+                                )
                         conn.commit()
                 logger.info("🌍 Statistiques globales recalculées et mises à jour.")
             else:
@@ -363,25 +462,30 @@ def run_transformations(db_url: str, import_id: str):
                 f"(niveau de permissivité {permissivity_level} — données incomplètes)."
             )
 
-        logger.info("✨ Pipeline modulaire, incrémental et consolidé terminé avec succès !")
-
+        logger.info(
+            "✨ Pipeline modulaire, incrémental et consolidé terminé avec succès !"
+        )
 
         # =========================================================
         # BESOIN DE RENOUVELLEMENT
         # =========================================================
         try:
             logger.info("🔄 Lancement du calcul du besoin de renouvellement...")
-            
+
             run_renewal_pipeline(db_url, import_id=import_id_str, horizon_years=120)
-                
+
             logger.info("✅ Calcul du besoin de renouvellement terminé")
-            
+
         except ImportError as e:
             logger.warning(f"⚠️ Module besoin_renouvellement non installé: {e}")
         except Exception as e:
-            logger.warning(f"⚠️ Erreur dans le calcul du besoin de renouvellement (non bloquante): {e}")
+            logger.warning(
+                f"⚠️ Erreur dans le calcul du besoin de renouvellement (non bloquante): {e}"
+            )
 
-        logger.info("✨ Pipeline modulaire, incrémental et consolidé terminé avec succès !")
+        logger.info(
+            "✨ Pipeline modulaire, incrémental et consolidé terminé avec succès !"
+        )
 
     except Exception as e:
         logger.error(f"❌ Erreur lors du pipeline : {e}")

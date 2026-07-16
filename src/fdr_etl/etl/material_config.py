@@ -55,7 +55,7 @@ DICT_MAT_FAMILY = {
     "bitum": "Autre",
     "bois": "Autre",
     "briq": "Autre",
-    "trct": "Autre"
+    "trct": "Autre",
 }
 
 # Valeurs par défaut
@@ -110,7 +110,7 @@ DEFAULT_ESL = {
     "bitum": 40,
     "bois": 50,
     "briq": 80,
-    "trct": 70
+    "trct": 70,
 }
 
 DEFAULT_SHAPE = {
@@ -164,5 +164,5 @@ DEFAULT_SHAPE = {
     "bitum": 1.5,
     "bois": 1.8,
     "briq": 2.5,
-    "trct": 2.0
+    "trct": 2.0,
 }

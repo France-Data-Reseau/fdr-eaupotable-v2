@@ -28,4 +28,4 @@ ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH="/app/src:${PYTHONPATH}"
 
 # Default command for production using Gunicorn WSGI server
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "3", "fdr_etl.web.app:create_app()"]
+CMD ["uvicorn", "fdr_etl.web.app:app", "--host", "0.0.0.0", "--port", "5000", "--workers", "4"]
