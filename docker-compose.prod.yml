@@ -2,6 +2,7 @@ services:
   db:
     volumes:
       - ./postgres_data:/var/lib/postgresql/data
+      - ./postgres_tls:/var/lib/postgresql/tls
       - ./docker/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
       - ./docker/postgres/initdb:/docker-entrypoint-initdb.d:ro
   web:
