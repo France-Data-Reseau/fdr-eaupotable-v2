@@ -41,8 +41,6 @@ services:
       - OIDC_AUDIENCE=${OIDC_AUDIENCE}
       - OIDC_BASE_URI=${OIDC_BASE_URI}
       - OIDC_CACHE_TTL=${OIDC_CACHE_TTL}
-    ports:
-      - "8000:5000"
     depends_on:
       - db
       - redis

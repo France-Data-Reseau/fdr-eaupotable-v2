@@ -12,6 +12,8 @@ services:
       - ./src:/app/src
       - uploads_data:/tmp/uploads
     command: ["uvicorn", "src.fdr_etl.web.app:app", "--host", "0.0.0.0", "--port", "5000", "--reload", "--log-level", "debug", "--access-log"]
+    ports:
+      - "8000:5000"
     extra_hosts:
       - "keycloak.localhost:host-gateway"
 
