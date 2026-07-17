@@ -1,0 +1,21 @@
+services:
+  db:
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+      - ./docker/postgres/initdb:/docker-entrypoint-initdb.d:ro
+  web:
+    environment:
+      - VIRTUAL_HOST
+      - VIRTUAL_PORT=5678
+      - LETSENCRYPT_HOST=${VIRTUAL_HOST}
+
+    volumes:
+      - ./uploads_data:/tmp/uploads
+  worker:
+    volumes:
+      - ./uploads_data:/tmp/uploads
+
+networks:
+  lb_web:
+    external: true

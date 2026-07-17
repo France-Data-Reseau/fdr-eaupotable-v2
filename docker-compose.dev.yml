@@ -1,0 +1,70 @@
+services:
+  db:
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+      - ./docker/postgres/initdb:/docker-entrypoint-initdb.d:ro
+  web:
+    build: .
+    environment:
+      - LOG_LEVEL=DEBUG
+    volumes:
+      - ./src:/app/src
+      - uploads_data:/tmp/uploads
+    command: ["uvicorn", "src.fdr_etl.web.app:app", "--host", "0.0.0.0", "--port", "5000", "--reload", "--log-level", "debug", "--access-log"]
+    extra_hosts:
+      - "keycloak.localhost:host-gateway"
+
+  worker:
+    build: .
+    volumes:
+      - ./src:/app/src
+      - uploads_data:/tmp/uploads
+  superset:
+    build:
+      context: .
+      dockerfile: Dockerfile.superset
+    user: root
+    ports:
+      - "8088:8088"
+    environment:
+      - SUPERSET_CONFIG_PATH=/app/pythonpath/superset_config.py
+      - SUPERSET_FEATURE_EMBEDDED_DASHBOARD=true
+      - SUPERSET_SECRET_KEY=${SUPERSET_SECRET_KEY}
+      - SQLALCHEMY_DATABASE_URI=postgresql://postgres:postgres@db:5432/fdr_db?sslmode=require
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/fdr_db?sslmode=require
+      - PGSSLMODE=${PGSSLMODE:-require}
+      - KEYCLOAK_SUPERSET_INTERNAL_URL=${KEYCLOAK_SUPERSET_INTERNAL_URL}
+      - KEYCLOAK_SUPERSET_CLIENT_ID=${KEYCLOAK_SUPERSET_CLIENT_ID}
+      - KEYCLOAK_SUPERSET_SECRET=${KEYCLOAK_SUPERSET_SECRET}
+      - KEYCLOAK_REALM=${KEYCLOAK_REALM}
+      - KEYCLOAK_ISSUER=${KEYCLOAK_ISSUER}
+    depends_on:
+      - db
+    networks:
+      - fdr_network
+    volumes:
+      - superset_home:/app/superset_home
+      - ./superset_config.py:/app/pythonpath/superset_config.py
+    extra_hosts:
+      - "kc-host:host-gateway"
+  keycloak:
+    image: keycloak/keycloak:26.0.7
+    command: start-dev --import-realm
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_DB: dev-file
+      KC_HOSTNAME: http://keycloak.localhost:8080
+      KC_HOSTNAME_STRICT_BACKCHANNEL: "false"
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./fdr-realm.json:/opt/keycloak/data/import/fdr-realm.json
+    networks:
+      - fdr_network
+
+volumes:
+  superset_home:
+  postgres_data:
+  uploads_data:
