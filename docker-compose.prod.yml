@@ -10,6 +10,9 @@ services:
       - VIRTUAL_HOST
       - VIRTUAL_PORT=5000
       - LETSENCRYPT_HOST=${VIRTUAL_HOST}
+    networks:
+      - fdr_network
+      - lb_web
 
     volumes:
       - ./uploads_data:/tmp/uploads
