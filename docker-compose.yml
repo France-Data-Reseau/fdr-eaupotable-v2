@@ -18,7 +18,7 @@ services:
       - ./docker/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
       - ./docker/postgres/initdb:/docker-entrypoint-initdb.d:ro
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${POSTGRES_EXTERNAL_PORT:-5432}:5432"
     restart: unless-stopped
     networks:
       - fdr_network

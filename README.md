@@ -42,7 +42,7 @@ Paramètres DB ajoutés :
 - `PGSSLMODE=require` : force les clients à utiliser TLS.
 - `POSTGRES_TLS_CN` / `POSTGRES_TLS_DAYS` : paramètres du certificat auto-signé généré au premier démarrage.
 
-La base PostgreSQL est exposée sur le port `POSTGRES_PORT` (5432 par défaut) et refuse explicitement toute connexion TCP non chiffrée (`hostnossl ... reject`).
+La base PostgreSQL est exposée sur le port `POSTGRES_EXTERNAL_PORT` (5432 par défaut) et refuse explicitement toute connexion TCP non chiffrée (`hostnossl ... reject`).
 Pour un client externe, utilisez un DSN avec `sslmode=require`.
 
 Note importante : les scripts d'initialisation PostgreSQL (certificat TLS + utilisateur lecture seule) ne s'exécutent qu'à la création initiale du volume de données.
