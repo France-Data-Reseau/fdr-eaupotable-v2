@@ -3,10 +3,10 @@ ENV ?= dev
 
 # Détermination des fichiers compose à utiliser
 ifeq ($(ENV), prod)
-	COMPOSE_FILES := -f docker-compose.yml
+	COMPOSE_FILES := -f docker-compose.yml -f docker-compose.prod.yml
 	MSG := "--- Mode PRODUCTION ---"
 else
-	COMPOSE_FILES := -f docker-compose.yml -f docker-compose.override.yml
+	COMPOSE_FILES := -f docker-compose.yml -f docker-compose.dev.yml
 	MSG := "--- Mode DÉVELOPPEMENT (Hot-reload activé) ---"
 endif
 

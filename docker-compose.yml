@@ -1,23 +1,30 @@
 services:
   db:
     image: postgis/postgis:16-3.4
-    command: ["postgres", "-c", "log_min_messages=error"]
+    entrypoint: ["bash", "/docker/postgres/prestart-postgres.sh"]
+    command: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf"]
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-fdr_db}
+      POSTGRES_READONLY_USER: ${POSTGRES_READONLY_USER:-fdr_readonly}
+      POSTGRES_READONLY_PASSWORD: ${POSTGRES_READONLY_PASSWORD:-fdr_readonly_change_me}
+      POSTGRES_READONLY_DB: ${POSTGRES_READONLY_DB:-${POSTGRES_DB:-fdr_db}}
+      POSTGRES_TLS_CN: ${POSTGRES_TLS_CN:-db}
+      POSTGRES_TLS_DAYS: ${POSTGRES_TLS_DAYS:-3650}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/prestart-postgres.sh:/docker/postgres/prestart-postgres.sh:ro
+      - ./docker/postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ./docker/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+      - ./docker/postgres/initdb:/docker-entrypoint-initdb.d:ro
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     restart: unless-stopped
     networks:
       - fdr_network
 
   redis:
     image: redis:8.6-alpine
-    ports:
-      - "6379:6379"
     restart: unless-stopped
     networks:
       - fdr_network
@@ -36,8 +43,6 @@ services:
       - OIDC_CACHE_TTL=${OIDC_CACHE_TTL}
     ports:
       - "8000:5000"
-    volumes:
-      - uploads_data:/tmp/uploads
     depends_on:
       - db
       - redis
@@ -55,8 +60,6 @@ services:
       - C_FORCE_ROOT=true
     networks:
       - fdr_network
-    volumes:
-      - uploads_data:/tmp/uploads
     depends_on:
       - db
       - redis
@@ -67,7 +70,3 @@ services:
 networks:
   fdr_network:
     driver: bridge
-
-volumes:
-  postgres_data:
-  uploads_data:
