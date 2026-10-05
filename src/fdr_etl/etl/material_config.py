@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Configuration des matériaux pour le calcul du besoin de renouvellement.
 Mapping des codes vers familles, ESL (durée de vie) et paramètres de forme Weibull.
@@ -166,3 +165,7 @@ DEFAULT_SHAPE = {
     "briq": 2.5,
     "trct": 2.0,
 }
+
+# Taux d'inflation annuel appliqué aux coûts futurs de renouvellement
+# (moyenne des 10 dernières années). Lu aussi par build_superset_bundle.py pour les textes.
+TAUX_INFLATION = 0.0192
