@@ -1,69 +1,80 @@
+import logging
+
 import numpy as np
 import pandas as pd
 
+logger = logging.getLogger(__name__)
+
 
 def compute_weighted_bootstrap(
-    df, group_col, n_iterations=1000, nb_years=1.0, batch_size=1000
-):
+    df: pd.DataFrame,
+    group_col: str,
+    n_iterations: int = 1000,
+    nb_years: float = 1.0,
+    batch_size: int = 1000,
+    seed: int | None = 42,
+) -> list[dict]:
     """
-    Calcule le taux de casse annuel moyen et l'intervalle de confiance.
-    Version hautement optimisée avec traitement par lots (mini-batches)
-    pour éviter les crashs de mémoire (SIGKILL / OOM) à 10 000 scénarios.
+    Calcule le taux de casse annuel moyen et son intervalle de confiance à 95 %
+    (bootstrap par rééchantillonnage des tronçons, traité par lots pour limiter la RAM).
+
+    Seuls les tronçons de longueur finie et strictement positive sont pris en compte :
+    un tronçon sans géométrie (longueur NaN) rendait le taux moyen NaN (puis 0 après
+    fillna) tout en laissant le bootstrap calculer un IC sur les rares échantillons
+    sans NaN — d'où des IC qui ne contenaient pas le taux.
+
+    Complexité : O(G · n_iterations · n) en temps, O(batch_size · n) en mémoire par groupe.
     """
+    rng = np.random.default_rng(seed)
     results = []
-    groups = df[group_col].unique()
 
-    for group in groups:
-        if pd.isna(group) or group == "Indéterminé":
+    km_all = pd.to_numeric(df["longueur_km"], errors="coerce").to_numpy(dtype=float)
+    casses_all = pd.to_numeric(df["nb_casses"], errors="coerce").to_numpy(dtype=float)
+    valid_rows = np.isfinite(km_all) & (km_all > 0) & np.isfinite(casses_all)
+
+    n_invalid = int((~valid_rows).sum())
+    if n_invalid:
+        logger.warning(
+            f"[bootstrap:{group_col}] {n_invalid} tronçon(s) sans longueur exploitable exclus du calcul."
+        )
+
+    groups = df[group_col].to_numpy()
+
+    for group in pd.unique(groups):
+        if pd.isna(group):  # or group == "Indéterminé":
             continue
 
-        group_data = df[df[group_col] == group]
-        n_rows = len(group_data)
+        mask = (groups == group) & valid_rows
+        km_arr = km_all[mask]
+        casses_arr = casses_all[mask]
+        n_rows = km_arr.size
 
-        if n_rows < 2 or group_data["longueur_km"].sum() <= 0:
+        if n_rows < 2:
             continue
 
-        # Passage sur des tableaux NumPy bruts
-        km_arr = group_data["longueur_km"].to_numpy()
-        casses_arr = group_data["nb_casses"].to_numpy()
+        mean_rate = (casses_arr.sum() / km_arr.sum()) / nb_years
 
-        boot_km_list = []
-        boot_casses_list = []
+        boot_rates = np.empty(n_iterations, dtype=float)
+        done = 0
+        while done < n_iterations:
+            current = min(batch_size, n_iterations - done)
+            idx = rng.integers(0, n_rows, size=(current, n_rows))
+            # km > 0 sur chaque ligne valide → la somme d'un échantillon est toujours > 0
+            boot_rates[done : done + current] = casses_arr[idx].sum(axis=1) / km_arr[
+                idx
+            ].sum(axis=1)
+            done += current
+        boot_rates /= nb_years
 
-        # 🔄 DÉCOUPAGE EN LOTS POUR PROTÉGER LA RAM
-        # Si n_iterations = 10000 et batch_size = 1000, on fait 10 boucles ultra-légères
-        iterations_faites = 0
-        while iterations_faites < n_iterations:
-            current_batch = min(batch_size, n_iterations - iterations_faites)
-
-            # Grille temporaire de taille réduite (ex: 1000 x N au lieu de 10000 x N)
-            indices = np.random.choice(
-                n_rows, size=(current_batch, n_rows), replace=True
-            )
-
-            boot_km_list.append(km_arr[indices].sum(axis=1))
-            boot_casses_list.append(casses_arr[indices].sum(axis=1))
-
-            iterations_faites += current_batch
-
-        # Fusion des lots en un seul vecteur final de taille (10000,) -> Léger en RAM
-        boot_km = np.concatenate(boot_km_list)
-        boot_col = np.concatenate(boot_casses_list)
-
-        valid_mask = boot_km > 0
-        if np.any(valid_mask):
-            boot_rates = (boot_col[valid_mask] / boot_km[valid_mask]) / nb_years
-            mean_rate = (casses_arr.sum() / km_arr.sum()) / nb_years
-
-            results.append(
-                {
-                    "analyse_type": group_col,
-                    "categorie": str(group),
-                    "taux_moyen": float(mean_rate),
-                    "ic_inf": float(np.percentile(boot_rates, 2.5)),
-                    "ic_sup": float(np.percentile(boot_rates, 97.5)),
-                    "nb_entites": int(n_rows),
-                }
-            )
+        results.append(
+            {
+                "analyse_type": group_col,
+                "categorie": str(group),
+                "taux_moyen": float(mean_rate),
+                "ic_inf": float(np.percentile(boot_rates, 2.5)),
+                "ic_sup": float(np.percentile(boot_rates, 97.5)),
+                "nb_entites": int(n_rows),
+            }
+        )
 
     return results

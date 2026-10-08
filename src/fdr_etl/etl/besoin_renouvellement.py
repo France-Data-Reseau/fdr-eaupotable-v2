@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Module de calcul du besoin de renouvellement des canalisations.
 Projection du besoin théorique (Weibull) + rattrapage du backlog lissé.
@@ -17,6 +16,7 @@ from fdr_etl.etl.material_config import (
     DEFAULT_ESL,
     DEFAULT_SHAPE,
     DICT_MAT_FAMILY,
+    TAUX_INFLATION,
 )
 
 logger = logging.getLogger(__name__)
@@ -76,9 +76,20 @@ def get_pipe_data_for_renewal(engine, import_id_str: str) -> pd.DataFrame:
           AND (c.diametre_num IS NULL OR c.diametre_num > 25)
           AND c.date_pose IS NOT NULL AND c.date_pose > 1700
           AND c.date_pose <= EXTRACT(YEAR FROM CURRENT_DATE)
+          AND c.geom IS NOT NULL                -- géométrie invalide/absente → longueur inconnue
+          AND ST_Length(c.geom) > 0
           AND c.file_id = :import_id
     """)
-    return pd.read_sql(query, engine, params={"import_id": import_id_str})
+    df = pd.read_sql(query, engine, params={"import_id": import_id_str})
+
+    valides = np.isfinite(df["longueur_km"].to_numpy(dtype=float)) & (
+        df["longueur_km"] > 0
+    )
+    if (~valides).any():
+        logger.warning(
+            f"⚠️ {int((~valides).sum())} canalisation(s) sans longueur exploitable exclue(s) du calcul."
+        )
+    return df.loc[valides].reset_index(drop=True)
 
 
 def calculate_base_projections(df_pipes, esl_dict, shape_dict, horizon_years=120):
@@ -115,7 +126,7 @@ def calculate_base_projections(df_pipes, esl_dict, shape_dict, horizon_years=120
         )
 
         cost_per_m = 0.0004 * diameters**2 + 0.4579 * diameters + 248.6
-        inflation = (1.025) ** np.maximum(0, years - current_year)
+        inflation = (1 + TAUX_INFLATION) ** np.maximum(0, years - current_year)
 
         renewal_m = lengths_km[:, np.newaxis] * prob_matrix * 1000
         cost_mat = renewal_m * cost_per_m[:, np.newaxis] * inflation[np.newaxis, :]
@@ -392,18 +403,18 @@ def run_renewal_pipeline(
                     (
                         import_id_str,
                         scope.upper(),
-                        round(total_length_km, 1),
-                        round(backlog_km, 1),
+                        round(total_length_km, 3),
+                        round(backlog_km, 3),
                         round(backlog_euro, 0),
-                        round(backlog_pct, 1),
-                        round(taux_sans_5, 1),
-                        round(taux_sans_10, 1),
-                        round(taux_sans_20, 1),
-                        round(taux_sans_30, 1),
-                        round(taux_avec[5], 1),
-                        round(taux_avec[10], 1),
-                        round(taux_avec[20], 1),
-                        round(taux_avec[30], 1),
+                        round(backlog_pct, 2),
+                        round(taux_sans_5, 3),
+                        round(taux_sans_10, 3),
+                        round(taux_sans_20, 3),
+                        round(taux_sans_30, 3),
+                        round(taux_avec[5], 3),
+                        round(taux_avec[10], 3),
+                        round(taux_avec[20], 3),
+                        round(taux_avec[30], 3),
                         round(avg_cost_per_km, 0),
                         horizon_years,
                     ),

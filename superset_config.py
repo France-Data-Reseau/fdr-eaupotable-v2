@@ -25,6 +25,12 @@ CORS_OPTIONS = {
     "origins": ["http://localhost:8000"],
 }
 
+HTML_SANITIZATION_SCHEMA_EXTENSIONS = {
+    "attributes": {"*": ["style", "className"]},
+    "tagNames": ["style"],
+}
+
+
 SECRET_KEY = os.getenv("SUPERSET_SECRET_KEY")
 GUEST_TOKEN_JWT_SECRET = os.getenv("SUPERSET_SECRET_KEY")
 GUEST_TOKEN_JWT_ALGO = "HS256"
@@ -40,6 +46,7 @@ WTF_CSRF_ENABLED = False
 TALISMAN_CONFIG = {
     "content_security_policy": {
         "frame-ancestors": ["localhost:8000", "http://localhost:8000"],
+        "script-src": ["'self'", "'strict-dynamic'", "'unsafe-eval'"],
     },
     "force_https": False,
 }
